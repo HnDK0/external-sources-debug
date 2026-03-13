@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ───────────────────────────────────────────────────────────────
 id       = "wtrlab"
 name     = "WTR-LAB"
-version  = "1.0.3"
+version  = "1.0.4"
 baseUrl  = "https://wtr-lab.com/"
 language = "MTL"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wtr-lab.png"
@@ -351,13 +351,25 @@ function getChapterText(html, chapterUrl)
             end
         end
         if termsArray then
+            -- Первый проход: собираем все правильные имена (translations[1])
+            -- чтобы не перезаписать их во втором проходе
+            local correctNames = {}
+            for _, term in ipairs(termsArray) do
+                local translations = term[1]
+                if type(translations) == "table" and translations[1] and translations[1] ~= "" then
+                    correctNames[translations[1]] = true
+                end
+            end
+            -- Второй проход: маппим все варианты (translations[2..n]),
+            -- но пропускаем те что являются чьим-то правильным именем (correctNames)
             local count = 0
             for _, term in ipairs(termsArray) do
                 local translations = term[1]
                 if type(translations) == "table" and translations[1] and translations[1] ~= "" then
                     local correct = translations[1]
-                    for _, variant in ipairs(translations) do
-                        if variant ~= "" then
+                    for i = 2, #translations do
+                        local variant = translations[i]
+                        if variant ~= "" and not correctNames[variant] then
                             v2Lookup[variant] = correct
                             count = count + 1
                         end
