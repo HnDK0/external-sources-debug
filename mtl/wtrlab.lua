@@ -331,9 +331,9 @@ function getChapterText(html, chapterUrl)
 
     local resolvedBody = decryptBody(rawBody)
 
-    -- ── v2 глоссарий (правильные имена) ───────────────────────────────────────
-    -- Строим map: любой вариант перевода → правильный (первый в списке)
-    local v2Corrections = {}
+    -- ── v2 глоссарий (правильные имена с сайта) ──────────────────────────────
+    -- Загружаем map: idx → правильное имя (translations[1])
+    local v2Names = {}  -- [0-based index] = correct name string
     local v2Url = baseUrl .. "api/v2/reader/terms/" .. novelId .. ".json"
     local v2r = http_get(v2Url, {
         headers = {
@@ -351,29 +351,23 @@ function getChapterText(html, chapterUrl)
             end
         end
         if termsArray then
-            local corrCount = 0
-            for _, term in ipairs(termsArray) do
+            for idx, term in ipairs(termsArray) do
                 local translations = term[1]
-                if type(translations) == "table" and #translations > 1 then
-                    local correct = translations[1]
-                    for i = 2, #translations do
-                        local variant = translations[i]
-                        if variant ~= correct and variant ~= "" then
-                            v2Corrections[variant] = correct
-                            corrCount = corrCount + 1
-                        end
-                    end
+                if type(translations) == "table" and translations[1] and translations[1] ~= "" then
+                    v2Names[idx - 1] = translations[1]  -- 0-based, совпадает с маркерами ※idx⛬
                 end
             end
-            log_info("wtrlab: v2 glossary loaded, " .. tostring(corrCount) .. " corrections mapped")
+            log_info("wtrlab: v2 glossary loaded, " .. tostring(#termsArray) .. " terms")
         else
             log_info("wtrlab: v2 glossary: unexpected structure")
         end
     else
-        log_info("wtrlab: v2 glossary fetch failed code=" .. tostring(v2r.code))
+        log_info("wtrlab: v2 glossary fetch failed code=" .. tostring(v2r.code) .. ", will use glossary_data fallback")
     end
 
     -- ── Глоссарий ─────────────────────────────────────────────────────────────
+    -- Если v2 доступен — берём правильное имя оттуда.
+    -- Если нет — фоллбэк на termEntry[1] из glossary_data в ответе API.
     local glossary = {}
     if data.glossary_data and data.glossary_data.terms then
         local terms = data.glossary_data.terms
@@ -381,9 +375,10 @@ function getChapterText(html, chapterUrl)
         for i = 1, #terms do
             local termEntry = terms[i]
             if type(termEntry) == "table" then
-                local termValue = termEntry[1] or ""
+                local idx = i - 1  -- 0-based
+                local termValue = v2Names[idx] or termEntry[1] or ""
                 if termValue ~= "" then
-                    glossary[i - 1] = termValue
+                    glossary[idx] = termValue
                 end
             end
         end
@@ -406,46 +401,6 @@ function getChapterText(html, chapterUrl)
     end
 
     local paragraphs = buildParagraphs(rawBody, resolvedBody, glossary, patches)
-
-    -- ── v2 второй проход: исправляем неправильные имена ──────────────────────
-    -- Используем plain string replace (find+sub в цикле) чтобы избежать
-    -- интерпретации спецсимволов Lua в gsub. Также сортируем по убыванию длины
-    -- чтобы длинные варианты заменялись раньше коротких (избегаем каскадов).
-    if next(v2Corrections) then
-        -- собираем пары и сортируем: длинный wrong → короткий wrong
-        local corrList = {}
-        for wrong, correct in pairs(v2Corrections) do
-            table.insert(corrList, { wrong = wrong, correct = correct })
-        end
-        table.sort(corrList, function(a, b) return #a.wrong > #b.wrong end)
-
-        local function plainReplace(s, from, to)
-            local result = {}
-            local fromLen = #from
-            local i = 1
-            while i <= #s do
-                local j = s:find(from, i, true)
-                if j then
-                    table.insert(result, s:sub(i, j - 1))
-                    table.insert(result, to)
-                    i = j + fromLen
-                else
-                    table.insert(result, s:sub(i))
-                    break
-                end
-            end
-            return table.concat(result)
-        end
-
-        for i, para in ipairs(paragraphs) do
-            for _, pair in ipairs(corrList) do
-                if para:find(pair.wrong, 1, true) then
-                    paragraphs[i] = plainReplace(para, pair.wrong, pair.correct)
-                    para = paragraphs[i]
-                end
-            end
-        end
-    end
 
     if #paragraphs == 0 then
         log_info("wtrlab: 0 paragraphs parsed")
