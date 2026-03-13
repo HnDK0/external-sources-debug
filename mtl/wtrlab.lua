@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ───────────────────────────────────────────────────────────────
 id       = "wtrlab"
 name     = "WTR-LAB"
-version  = "1.0.2"
+version  = "1.0.3"
 baseUrl  = "https://wtr-lab.com/"
 language = "MTL"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wtr-lab.png"
@@ -408,11 +408,39 @@ function getChapterText(html, chapterUrl)
     local paragraphs = buildParagraphs(rawBody, resolvedBody, glossary, patches)
 
     -- ── v2 второй проход: исправляем неправильные имена ──────────────────────
+    -- Используем plain string replace (find+sub в цикле) чтобы избежать
+    -- интерпретации спецсимволов Lua в gsub. Также сортируем по убыванию длины
+    -- чтобы длинные варианты заменялись раньше коротких (избегаем каскадов).
     if next(v2Corrections) then
+        -- собираем пары и сортируем: длинный wrong → короткий wrong
+        local corrList = {}
+        for wrong, correct in pairs(v2Corrections) do
+            table.insert(corrList, { wrong = wrong, correct = correct })
+        end
+        table.sort(corrList, function(a, b) return #a.wrong > #b.wrong end)
+
+        local function plainReplace(s, from, to)
+            local result = {}
+            local fromLen = #from
+            local i = 1
+            while i <= #s do
+                local j = s:find(from, i, true)
+                if j then
+                    table.insert(result, s:sub(i, j - 1))
+                    table.insert(result, to)
+                    i = j + fromLen
+                else
+                    table.insert(result, s:sub(i))
+                    break
+                end
+            end
+            return table.concat(result)
+        end
+
         for i, para in ipairs(paragraphs) do
-            for wrong, correct in pairs(v2Corrections) do
-                if para:find(wrong, 1, true) then
-                    paragraphs[i] = para:gsub(wrong, correct)
+            for _, pair in ipairs(corrList) do
+                if para:find(pair.wrong, 1, true) then
+                    paragraphs[i] = plainReplace(para, pair.wrong, pair.correct)
                     para = paragraphs[i]
                 end
             end
