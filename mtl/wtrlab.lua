@@ -7,7 +7,7 @@ language = "MTL"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wtr-lab.png"
 
 -- ── Настройки ────────────────────────────────────────────────────────────────
-local PREF_MODE = "wtrlab_mode"
+local PREF_MODE = "wtrlab_mode"  -- "ai" | "raw"
 
 local function getMode()
     local v = get_preference(PREF_MODE)
@@ -331,6 +331,48 @@ function getChapterText(html, chapterUrl)
 
     local resolvedBody = decryptBody(rawBody)
 
+    -- ── v2 глоссарий (правильные имена) ───────────────────────────────────────
+    -- Строим map: любой вариант перевода → правильный (первый в списке)
+    local v2Corrections = {}
+    local v2Url = baseUrl .. "api/v2/reader/terms/" .. novelId .. ".json"
+    local v2r = http_get(v2Url, {
+        headers = {
+            ["Referer"] = chapterUrl,
+            ["Origin"]  = regex_replace(baseUrl, "/$", "")
+        }
+    })
+    if v2r.success then
+        local v2data = json_parse(v2r.body)
+        local termsArray = nil
+        if v2data and type(v2data) == "table" then
+            if v2data.glossaries and v2data.glossaries[1] and
+               v2data.glossaries[1].data and v2data.glossaries[1].data.terms then
+                termsArray = v2data.glossaries[1].data.terms
+            end
+        end
+        if termsArray then
+            local corrCount = 0
+            for _, term in ipairs(termsArray) do
+                local translations = term[1]
+                if type(translations) == "table" and #translations > 1 then
+                    local correct = translations[1]
+                    for i = 2, #translations do
+                        local variant = translations[i]
+                        if variant ~= correct and variant ~= "" then
+                            v2Corrections[variant] = correct
+                            corrCount = corrCount + 1
+                        end
+                    end
+                end
+            end
+            log_info("wtrlab: v2 glossary loaded, " .. tostring(corrCount) .. " corrections mapped")
+        else
+            log_info("wtrlab: v2 glossary: unexpected structure")
+        end
+    else
+        log_info("wtrlab: v2 glossary fetch failed code=" .. tostring(v2r.code))
+    end
+
     -- ── Глоссарий ─────────────────────────────────────────────────────────────
     local glossary = {}
     if data.glossary_data and data.glossary_data.terms then
@@ -340,7 +382,6 @@ function getChapterText(html, chapterUrl)
             local termEntry = terms[i]
             if type(termEntry) == "table" then
                 local termValue = termEntry[1] or ""
-                log_info("wtrlab: glossary[" .. tostring(i - 1) .. "] = '" .. termValue .. "'")
                 if termValue ~= "" then
                     glossary[i - 1] = termValue
                 end
@@ -366,6 +407,18 @@ function getChapterText(html, chapterUrl)
 
     local paragraphs = buildParagraphs(rawBody, resolvedBody, glossary, patches)
 
+    -- ── v2 второй проход: исправляем неправильные имена ──────────────────────
+    if next(v2Corrections) then
+        for i, para in ipairs(paragraphs) do
+            for wrong, correct in pairs(v2Corrections) do
+                if para:find(wrong, 1, true) then
+                    paragraphs[i] = para:gsub(wrong, correct)
+                    para = paragraphs[i]
+                end
+            end
+        end
+    end
+
     if #paragraphs == 0 then
         log_info("wtrlab: 0 paragraphs parsed")
         return ""
@@ -388,7 +441,7 @@ function getSettingsSchema()
         {
             key     = PREF_MODE,
             type    = "select",
-            label   = "Source Text Mode",
+            label   = "Translation Mode",
             current = getMode(),
             options = {
                 { value = "ai",  label = "AI (Beta)" },
