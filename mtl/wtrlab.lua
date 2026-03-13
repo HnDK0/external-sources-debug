@@ -332,8 +332,8 @@ function getChapterText(html, chapterUrl)
     local resolvedBody = decryptBody(rawBody)
 
     -- ── v2 глоссарий (правильные имена с сайта) ──────────────────────────────
-    -- Загружаем map: idx → правильное имя (translations[1])
-    local v2Names = {}  -- [0-based index] = correct name string
+    -- Строим обратный словарь: любой вариант → правильное имя (translations[1])
+    local v2Lookup = {}  -- [variant] = correct name
     local v2Url = baseUrl .. "api/v2/reader/terms/" .. novelId .. ".json"
     local v2r = http_get(v2Url, {
         headers = {
@@ -351,23 +351,30 @@ function getChapterText(html, chapterUrl)
             end
         end
         if termsArray then
-            for idx, term in ipairs(termsArray) do
+            local count = 0
+            for _, term in ipairs(termsArray) do
                 local translations = term[1]
                 if type(translations) == "table" and translations[1] and translations[1] ~= "" then
-                    v2Names[idx - 1] = translations[1]  -- 0-based, совпадает с маркерами ※idx⛬
+                    local correct = translations[1]
+                    for _, variant in ipairs(translations) do
+                        if variant ~= "" then
+                            v2Lookup[variant] = correct
+                            count = count + 1
+                        end
+                    end
                 end
             end
-            log_info("wtrlab: v2 glossary loaded, " .. tostring(#termsArray) .. " terms")
+            log_info("wtrlab: v2 lookup built, " .. tostring(count) .. " variants mapped")
         else
             log_info("wtrlab: v2 glossary: unexpected structure")
         end
     else
-        log_info("wtrlab: v2 glossary fetch failed code=" .. tostring(v2r.code) .. ", will use glossary_data fallback")
+        log_info("wtrlab: v2 glossary fetch failed code=" .. tostring(v2r.code) .. ", will use glossary_data as-is")
     end
 
     -- ── Глоссарий ─────────────────────────────────────────────────────────────
-    -- Если v2 доступен — берём правильное имя оттуда.
-    -- Если нет — фоллбэк на termEntry[1] из glossary_data в ответе API.
+    -- Берём termEntry[1] из glossary_data, затем ищем в v2Lookup —
+    -- если этот вариант известен v2, подставляем правильное имя оттуда.
     local glossary = {}
     if data.glossary_data and data.glossary_data.terms then
         local terms = data.glossary_data.terms
@@ -375,10 +382,14 @@ function getChapterText(html, chapterUrl)
         for i = 1, #terms do
             local termEntry = terms[i]
             if type(termEntry) == "table" then
-                local idx = i - 1  -- 0-based
-                local termValue = v2Names[idx] or termEntry[1] or ""
-                if termValue ~= "" then
+                local idx = i - 1  -- 0-based, совпадает с маркерами ※idx⛬
+                local raw = termEntry[1] or ""
+                if raw ~= "" then
+                    local termValue = v2Lookup[raw] or raw
                     glossary[idx] = termValue
+                    if v2Lookup[raw] then
+                        log_info("wtrlab: glossary[" .. idx .. "] '" .. raw .. "' -> '" .. termValue .. "' (v2 corrected)")
+                    end
                 end
             end
         end
