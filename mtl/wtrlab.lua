@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ───────────────────────────────────────────────────────────────
 id       = "wtrlab"
 name     = "WTR-LAB"
-version  = "1.0.4"
+version  = "1.0.5"
 baseUrl  = "https://wtr-lab.com/"
 language = "MTL"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wtr-lab.png"
@@ -455,4 +455,372 @@ function getSettingsSchema()
             }
         }
     }
+end
+-- ── Жанры на странице книги ───────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+    local r = http_get(bookUrl)
+    if not r.success then return {} end
+
+    local genres = {}
+
+    -- Основной способ: таблица с td "Genre" → следующий td → ссылки
+    for _, row in ipairs(html_select(r.body, "tr")) do
+        local tds = html_select(row.html, "td")
+        if #tds >= 2 then
+            local label = string_trim(tds[1].text)
+            if label == "Genre" or label == "Genres" then
+                for _, a in ipairs(html_select(tds[2].html, "a")) do
+                    local g = string_trim(a.text):gsub(",$", "")
+                    if g ~= "" then table.insert(genres, g) end
+                end
+                break
+            end
+        end
+    end
+
+    -- Запасной: .genre или .genres .genre
+    if #genres == 0 then
+        for _, el in ipairs(html_select(r.body, ".genre")) do
+            local g = string_trim(el.text):gsub(",$", "")
+            if g ~= "" then table.insert(genres, g) end
+        end
+    end
+
+    return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+    return {
+        {
+            type         = "select",
+            key          = "orderBy",
+            label        = "Order by",
+            defaultValue = "update",
+            options = {
+                { value = "update",       label = "Update Date"    },
+                { value = "date",         label = "Addition Date"  },
+                { value = "random",       label = "Random"         },
+                { value = "weekly_rank",  label = "Weekly View"    },
+                { value = "monthly_rank", label = "Monthly View"   },
+                { value = "view",         label = "All-Time View"  },
+                { value = "name",         label = "Name"           },
+                { value = "reader",       label = "Reader"         },
+                { value = "chapter",      label = "Chapter"        },
+                { value = "rating",       label = "Rating"         },
+                { value = "total_rate",   label = "Review Count"   },
+                { value = "vote",         label = "Vote Count"     },
+            }
+        },
+        {
+            type         = "select",
+            key          = "order",
+            label        = "Order",
+            defaultValue = "desc",
+            options = {
+                { value = "desc", label = "Descending" },
+                { value = "asc",  label = "Ascending"  },
+            }
+        },
+        {
+            type         = "select",
+            key          = "status",
+            label        = "Status",
+            defaultValue = "all",
+            options = {
+                { value = "all",       label = "All"       },
+                { value = "ongoing",   label = "Ongoing"   },
+                { value = "completed", label = "Completed" },
+                { value = "hiatus",    label = "Hiatus"    },
+                { value = "dropped",   label = "Dropped"   },
+            }
+        },
+        {
+            type         = "select",
+            key          = "release_status",
+            label        = "Release Status",
+            defaultValue = "all",
+            options = {
+                { value = "all",      label = "All"        },
+                { value = "released", label = "Released"   },
+                { value = "voting",   label = "On Voting"  },
+            }
+        },
+        {
+            type         = "select",
+            key          = "addition_age",
+            label        = "Addition Age",
+            defaultValue = "all",
+            options = {
+                { value = "all",   label = "All"         },
+                { value = "day",   label = "< 2 Days"    },
+                { value = "week",  label = "< 1 Week"    },
+                { value = "month", label = "< 1 Month"   },
+            }
+        },
+        {
+            type  = "text",
+            key   = "min_chapters",
+            label = "Minimum Chapters",
+            defaultValue = "",
+        },
+        {
+            type  = "text",
+            key   = "min_rating",
+            label = "Minimum Rating (0.0-5.0)",
+            defaultValue = "",
+        },
+        {
+            type         = "select",
+            key          = "genre_operator",
+            label        = "Genre (And/Or)",
+            defaultValue = "and",
+            options = {
+                { value = "and", label = "And" },
+                { value = "or",  label = "Or"  },
+            }
+        },
+        {
+            type  = "tristate",
+            key   = "genres",
+            label = "Genres",
+            options = {
+                { value = "417", label = "Male Protagonist"              },
+                { value = "717", label = "Transmigration"               },
+                { value = "696", label = "System"                       },
+                { value = "169", label = "Cultivation"                  },
+                { value = "667", label = "Special Abilities"            },
+                { value = "275", label = "Female Protagonist"           },
+                { value = "263", label = "Fanfiction"                   },
+                { value = "750", label = "Weak to Strong"               },
+                { value = "327", label = "Handsome Male Lead"           },
+                { value = "81",  label = "Beautiful Female Lead"        },
+                { value = "297", label = "Game Elements"                },
+                { value = "122", label = "Cheats"                       },
+                { value = "306", label = "Genius Protagonist"           },
+                { value = "578", label = "Reincarnation"                },
+                { value = "329", label = "Harem-seeking Protagonist"    },
+                { value = "710", label = "Time Travel"                  },
+                { value = "506", label = "Overpowered Protagonist"      },
+                { value = "446", label = "Modern Day"                   },
+                { value = "108", label = "Business Management"          },
+                { value = "111", label = "Calm Protagonist"             },
+                { value = "410", label = "Magic"                        },
+                { value = "357", label = "Immortals"                    },
+                { value = "134", label = "Clever Protagonist"           },
+                { value = "595", label = "Ruthless Protagonist"         },
+                { value = "47",  label = "Apocalypse"                   },
+                { value = "756", label = "World Hopping"                },
+                { value = "540", label = "Poor to Rich"                 },
+                { value = "266", label = "Farming"                      },
+                { value = "265", label = "Fantasy World"                },
+                { value = "379", label = "Kingdom Building"             },
+                { value = "267", label = "Fast Cultivation"             },
+                { value = "560", label = "Protagonist Strong from the Start" },
+                { value = "171", label = "Cunning Protagonist"          },
+                { value = "601", label = "Schemes And Conspiracies"     },
+                { value = "692", label = "Survival"                     },
+                { value = "544", label = "Post-apocalyptic"             },
+                { value = "328", label = "Hard-Working Protagonist"     },
+                { value = "640", label = "Showbiz"                      },
+                { value = "735", label = "Unlimited Flow"               },
+                { value = "191", label = "Demons"                       },
+                { value = "452", label = "Monsters"                     },
+                { value = "216", label = "Dragons"                      },
+                { value = "592", label = "Romantic Subplot"             },
+                { value = "538", label = "Polygamy"                     },
+                { value = "248", label = "Evolution"                    },
+                { value = "388", label = "Leadership"                   },
+                { value = "30",  label = "Alternate World"              },
+                { value = "117", label = "Celebrities"                  },
+                { value = "682", label = "Strong to Stronger"           },
+                { value = "27",  label = "Alchemy"                      },
+                { value = "459", label = "Multiple Realms"              },
+                { value = "414", label = "Magical Space"                },
+                { value = "225", label = "Early Romance"                },
+                { value = "198", label = "Devoted Love Interests"       },
+                { value = "606", label = "Second Chance"                },
+                { value = "585", label = "Revenge"                      },
+                { value = "246", label = "Evil Protagonist"             },
+                { value = "5",   label = "Academy"                      },
+                { value = "765", label = "Zombies"                      },
+                { value = "473", label = "Mythology"                    },
+                { value = "316", label = "Gods"                         },
+                { value = "695", label = "Sword Wielder"                },
+                { value = "510", label = "Parallel Worlds"              },
+                { value = "390", label = "Level System"                 },
+                { value = "80",  label = "Beasts"                       },
+                { value = "264", label = "Fantasy Creatures"            },
+                { value = "343", label = "Hiding True Identity"         },
+                { value = "408", label = "Loyal Subordinates"           },
+                { value = "659", label = "Slow Romance"                 },
+                { value = "257", label = "Family"                       },
+                { value = "536", label = "Politics"                     },
+                { value = "197", label = "Determined Protagonist"       },
+                { value = "342", label = "Hiding True Abilities"        },
+                { value = "35",  label = "Ancient Times"                },
+                { value = "55",  label = "Arranged Marriage"            },
+                { value = "142", label = "Cold Protagonist"             },
+                { value = "307", label = "Ghosts"                       },
+                { value = "694", label = "Sword And Magic"              },
+                { value = "748", label = "Wars"                         },
+                { value = "437", label = "Military"                     },
+                { value = "83",  label = "Betrayal"                     },
+                { value = "442", label = "Misunderstandings"            },
+                { value = "93",  label = "Bloodlines"                   },
+                { value = "721", label = "Transported to Another World" },
+                { value = "485", label = "Nobles"                       },
+                { value = "211", label = "Doting Love Interests"        },
+                { value = "43",  label = "Antihero Protagonist"         },
+                { value = "315", label = "Godly Powers"                 },
+                { value = "577", label = "Reincarnated in Another World"},
+                { value = "409", label = "Lucky Protagonist"            },
+                { value = "742", label = "Virtual Reality"              },
+                { value = "433", label = "Medical Knowledge"            },
+                { value = "312", label = "God Protagonist"              },
+                { value = "268", label = "Fast Learner"                 },
+                { value = "380", label = "Kingdoms"                     },
+                { value = "731", label = "Underestimated Protagonist"   },
+                { value = "455", label = "Multiple Identities"          },
+                { value = "474", label = "Naive Protagonist"            },
+                { value = "208", label = "Doctors"                      },
+                { value = "492", label = "Older Love Interests"         },
+                { value = "233", label = "Elves"                        },
+                { value = "341", label = "Hidden Abilities"             },
+                { value = "545", label = "Power Couple"                 },
+                { value = "154", label = "Cooking"                      },
+                { value = "95",  label = "Body Tempering"               },
+                { value = "428", label = "Master-Disciple Relationship" },
+                { value = "368", label = "Interdimensional Travel"      },
+                { value = "594", label = "Royalty"                      },
+                { value = "407", label = "Low-key Protagonist"          },
+            }
+        },
+        {
+            type         = "select",
+            key          = "tag_operator",
+            label        = "Tag (And/Or)",
+            defaultValue = "and",
+            options = {
+                { value = "and", label = "And" },
+                { value = "or",  label = "Or"  },
+            }
+        },
+        {
+            type  = "tristate",
+            key   = "tags",
+            label = "Tags",
+            options = {
+                { value = "417", label = "Male Protagonist"    },
+                { value = "717", label = "Transmigration"      },
+                { value = "696", label = "System"              },
+                { value = "169", label = "Cultivation"         },
+                { value = "667", label = "Special Abilities"   },
+                { value = "275", label = "Female Protagonist"  },
+                { value = "263", label = "Fanfiction"          },
+                { value = "750", label = "Weak to Strong"      },
+                { value = "297", label = "Game Elements"       },
+                { value = "122", label = "Cheats"              },
+                { value = "306", label = "Genius Protagonist"  },
+                { value = "578", label = "Reincarnation"       },
+                { value = "710", label = "Time Travel"         },
+                { value = "506", label = "Overpowered Protagonist" },
+                { value = "446", label = "Modern Day"          },
+                { value = "410", label = "Magic"               },
+                { value = "134", label = "Clever Protagonist"  },
+                { value = "595", label = "Ruthless Protagonist"},
+                { value = "47",  label = "Apocalypse"          },
+                { value = "540", label = "Poor to Rich"        },
+                { value = "266", label = "Farming"             },
+                { value = "379", label = "Kingdom Building"    },
+                { value = "692", label = "Survival"            },
+                { value = "544", label = "Post-apocalyptic"    },
+                { value = "640", label = "Showbiz"             },
+                { value = "735", label = "Unlimited Flow"      },
+                { value = "191", label = "Demons"              },
+            }
+        },
+    }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+    local page           = index + 1
+    local orderBy        = filters["orderBy"]        or "update"
+    local order          = filters["order"]          or "desc"
+    local status         = filters["status"]         or "all"
+    local release_status = filters["release_status"] or "all"
+    local addition_age   = filters["addition_age"]   or "all"
+    local min_chapters   = filters["min_chapters"]   or ""
+    local min_rating     = filters["min_rating"]     or ""
+    local genre_op       = filters["genre_operator"] or "and"
+    local tag_op         = filters["tag_operator"]   or "and"
+
+    local genres_inc = filters["genres_included"] or {}
+    local genres_exc = filters["genres_excluded"] or {}
+    local tags_inc   = filters["tags_included"]   or {}
+    local tags_exc   = filters["tags_excluded"]   or {}
+
+    -- WTR-LAB использует _next/data API — нужен buildId со страницы novel-finder
+    local finderUrl = baseUrl .. "en/novel-finder"
+    local fr = http_get(finderUrl)
+    if not fr.success then return { items = {}, hasNext = false } end
+
+    local buildId = string.match(fr.body, '"buildId":"([^"]+)"')
+    if not buildId then return { items = {}, hasNext = false } end
+
+    local params = "orderBy=" .. orderBy
+                .. "&order="          .. order
+                .. "&status="         .. status
+                .. "&release_status=" .. release_status
+                .. "&addition_age="   .. addition_age
+                .. "&page="           .. tostring(page)
+
+    if min_chapters ~= "" then params = params .. "&minc=" .. url_encode(min_chapters) end
+    if min_rating   ~= "" then params = params .. "&minr=" .. url_encode(min_rating)   end
+
+    if #genres_inc > 0 then
+        params = params .. "&gi=" .. table.concat(genres_inc, ",") .. "&gc=" .. genre_op
+    end
+    if #genres_exc > 0 then
+        params = params .. "&ge=" .. table.concat(genres_exc, ",")
+    end
+    if #tags_inc > 0 then
+        params = params .. "&ti=" .. table.concat(tags_inc, ",") .. "&tc=" .. tag_op
+    end
+    if #tags_exc > 0 then
+        params = params .. "&te=" .. table.concat(tags_exc, ",")
+    end
+
+    local apiUrl = baseUrl .. "_next/data/" .. buildId .. "/en/novel-finder.json?" .. params
+    local r = http_get(apiUrl)
+    if not r.success then return { items = {}, hasNext = false } end
+
+    local data = json_parse(r.body)
+    if not data then return { items = {}, hasNext = false } end
+
+    local series = data.pageProps and data.pageProps.series
+    if not series then return { items = {}, hasNext = false } end
+
+    local seen = {}
+    local items = {}
+    for _, novel in ipairs(series) do
+        local rawId = tostring(novel.raw_id or "")
+        if rawId ~= "" and not seen[rawId] then
+            seen[rawId] = true
+            local title = (novel.data and novel.data.title) or ""
+            local cover = (novel.data and novel.data.image) or ""
+            local slug  = novel.slug or ""
+            table.insert(items, {
+                title = string_clean(title),
+                url   = baseUrl .. "en/serie-" .. rawId .. "/" .. slug,
+                cover = absUrl(cover)
+            })
+        end
+    end
+
+    return { items = items, hasNext = #items > 0 }
 end

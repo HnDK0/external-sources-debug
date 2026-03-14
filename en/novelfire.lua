@@ -1,6 +1,6 @@
 ﻿id       = "novelfire"
 name     = "NovelFire"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://novelfire.net"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelfire.png"
@@ -158,4 +158,210 @@ function getChapterText(html, url)
     
     -- Ключевой момент: html_text сохраняет переносы строк
     return applyStandardContentTransforms(html_text(el.html))
+end
+-- ── Жанры на странице книги ───────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+
+  local genres = {}
+  for _, a in ipairs(html_select(r.body, ".categories .property-item")) do
+    local label = string_trim(a.text)
+    if label ~= "" then table.insert(genres, label) end
+  end
+  return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "sort",
+      label        = "Sort Results By",
+      defaultValue = "rank-top",
+      options = {
+        { value = "rank-top",          label = "Rank (Top)"                 },
+        { value = "rating-score-top",  label = "Rating Score (Top)"         },
+        { value = "review",            label = "Review Count (Most)"        },
+        { value = "comment",           label = "Comment Count (Most)"       },
+        { value = "bookmark",          label = "Bookmark Count (Most)"      },
+        { value = "today-view",        label = "Today Views (Most)"         },
+        { value = "monthly-view",      label = "Monthly Views (Most)"       },
+        { value = "total-view",        label = "Total Views (Most)"         },
+        { value = "abc",               label = "Title (A>Z)"                },
+        { value = "cba",               label = "Title (Z>A)"                },
+        { value = "date",              label = "Last Updated (Newest)"      },
+        { value = "chapter-count-most",label = "Chapter Count (Most)"       },
+      }
+    },
+    {
+      type         = "select",
+      key          = "status",
+      label        = "Translation Status",
+      defaultValue = "-1",
+      options = {
+        { value = "-1", label = "All"       },
+        { value = "1",  label = "Completed" },
+        { value = "0",  label = "Ongoing"   },
+      }
+    },
+    {
+      type         = "select",
+      key          = "genre_operator",
+      label        = "Genres (And/Or/Exclude)",
+      defaultValue = "and",
+      options = {
+        { value = "and",     label = "AND"     },
+        { value = "or",      label = "OR"      },
+        { value = "exclude", label = "EXCLUDE" },
+      }
+    },
+    {
+      type         = "select",
+      key          = "rating_operator",
+      label        = "Rating (Min/Max)",
+      defaultValue = "min",
+      options = {
+        { value = "min", label = "Min" },
+        { value = "max", label = "Max" },
+      }
+    },
+    {
+      type         = "select",
+      key          = "rating",
+      label        = "Rating",
+      defaultValue = "0",
+      options = {
+        { value = "0", label = "All" },
+        { value = "1", label = "1"   },
+        { value = "2", label = "2"   },
+        { value = "3", label = "3"   },
+        { value = "4", label = "4"   },
+        { value = "5", label = "5"   },
+      }
+    },
+    {
+      type         = "select",
+      key          = "chapters",
+      label        = "Chapters",
+      defaultValue = "0",
+      options = {
+        { value = "0",           label = "All"         },
+        { value = "1,49",        label = "<50"         },
+        { value = "50,100",      label = "50-100"      },
+        { value = "100,200",     label = "100-200"     },
+        { value = "200,500",     label = "200-500"     },
+        { value = "500,1000",    label = "500-1000"    },
+        { value = "1001,1000000",label = ">1000"       },
+      }
+    },
+    {
+      type  = "checkbox",
+      key   = "language",
+      label = "Language",
+      options = {
+        { value = "1", label = "Chinese"  },
+        { value = "2", label = "Korean"   },
+        { value = "3", label = "Japanese" },
+        { value = "4", label = "English"  },
+      }
+    },
+    {
+      type  = "checkbox",
+      key   = "genres",
+      label = "Genres",
+      options = {
+        { value = "3",  label = "Action"            },
+        { value = "28", label = "Adult"             },
+        { value = "4",  label = "Adventure"         },
+        { value = "46", label = "Anime"             },
+        { value = "5",  label = "Comedy"            },
+        { value = "24", label = "Drama"             },
+        { value = "44", label = "Eastern"           },
+        { value = "26", label = "Ecchi"             },
+        { value = "48", label = "Fan-fiction"       },
+        { value = "6",  label = "Fantasy"           },
+        { value = "19", label = "Game"              },
+        { value = "25", label = "Gender Bender"     },
+        { value = "7",  label = "Harem"             },
+        { value = "12", label = "Historical"        },
+        { value = "37", label = "Horror"            },
+        { value = "49", label = "Isekai"            },
+        { value = "2",  label = "Josei"             },
+        { value = "45", label = "Lgbt+"             },
+        { value = "50", label = "Magic"             },
+        { value = "15", label = "Martial Arts"      },
+        { value = "8",  label = "Mature"            },
+        { value = "34", label = "Mecha"             },
+        { value = "16", label = "Mystery"           },
+        { value = "9",  label = "Psychological"     },
+        { value = "43", label = "Reincarnation"     },
+        { value = "1",  label = "Romance"           },
+        { value = "21", label = "School Life"       },
+        { value = "20", label = "Sci-fi"            },
+        { value = "10", label = "Seinen"            },
+        { value = "38", label = "Shoujo"            },
+        { value = "17", label = "Shounen"           },
+        { value = "13", label = "Slice of Life"     },
+        { value = "29", label = "Smut"              },
+        { value = "42", label = "Sports"            },
+        { value = "18", label = "Supernatural"      },
+        { value = "58", label = "System"            },
+        { value = "32", label = "Tragedy"           },
+        { value = "31", label = "Wuxia"             },
+        { value = "23", label = "Xianxia"           },
+        { value = "22", label = "Xuanhuan"          },
+        { value = "14", label = "Yaoi"              },
+        { value = "62", label = "Yuri"              },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page           = index + 1
+  local sort           = filters["sort"]           or "rank-top"
+  local status         = filters["status"]         or "-1"
+  local genre_operator = filters["genre_operator"] or "and"
+  local rating_op      = filters["rating_operator"] or "min"
+  local rating         = filters["rating"]         or "0"
+  local chapters       = filters["chapters"]       or "0"
+  local languages      = filters["language_included"] or {}
+  local genres         = filters["genres_included"]   or {}
+
+  local url = baseUrl .. "/search-adv?ctgcon=" .. genre_operator
+              .. "&ratcon=" .. rating_op
+              .. "&rating=" .. rating
+              .. "&status=" .. status
+              .. "&sort="   .. sort
+              .. "&totalchapter=" .. url_encode(chapters)
+              .. "&page="   .. tostring(page)
+
+  for _, v in ipairs(languages) do url = url .. "&country_id[]=" .. v end
+  for _, v in ipairs(genres)    do url = url .. "&categories[]=" .. v end
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, card in ipairs(html_select(r.body, ".novel-list > .novel-item")) do
+    local titleEl = html_select_first(card.html, ".novel-title")
+    local linkEl  = html_select_first(card.html, ".novel-title a")
+    local cover   = html_attr(card.html, "img", "data-src")
+    if cover == "" then cover = html_attr(card.html, "img", "src") end
+    if titleEl and linkEl then
+      table.insert(items, {
+        title = string_clean(titleEl.text),
+        url   = absUrl(linkEl.href),
+        cover = absUrl(cover)
+      })
+    end
+  end
+
+  return { items = items, hasNext = #items > 0 }
 end

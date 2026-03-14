@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "scribblehub"
 name     = "ScribbleHub"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://www.scribblehub.com/"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/scribblehub.png"
@@ -163,4 +163,191 @@ function getChapterText(html, url)
   local el = html_select_first(cleaned, "#chp_raw")
   if not el then return "" end
   return applyStandardContentTransforms(html_text(el.html))
+end
+-- ── Жанры на странице книги ───────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+
+  local genres = {}
+  for _, a in ipairs(html_select(r.body, ".fic_genre")) do
+    local label = string_trim(a.text)
+    if label ~= "" then table.insert(genres, label) end
+  end
+  return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "sort",
+      label        = "Sort Results By",
+      defaultValue = "ratings",
+      options = {
+        { value = "chapters",    label = "Chapters"            },
+        { value = "frequency",   label = "Chapters per Week"   },
+        { value = "dateadded",   label = "Date Added"          },
+        { value = "favorites",   label = "Favorites"           },
+        { value = "lastchdate",  label = "Last Updated"        },
+        { value = "numofrate",   label = "Number of Ratings"   },
+        { value = "pages",       label = "Pages"               },
+        { value = "pageviews",   label = "Pageviews"           },
+        { value = "ratings",     label = "Ratings"             },
+        { value = "readers",     label = "Readers"             },
+        { value = "reviews",     label = "Reviews"             },
+        { value = "totalwords",  label = "Total Words"         },
+      }
+    },
+    {
+      type         = "select",
+      key          = "order",
+      label        = "Order By",
+      defaultValue = "desc",
+      options = {
+        { value = "desc", label = "Descending" },
+        { value = "asc",  label = "Ascending"  },
+      }
+    },
+    {
+      type         = "select",
+      key          = "storyStatus",
+      label        = "Story Status",
+      defaultValue = "all",
+      options = {
+        { value = "all",       label = "All"       },
+        { value = "completed", label = "Completed" },
+        { value = "ongoing",   label = "Ongoing"   },
+        { value = "hiatus",    label = "Hiatus"    },
+      }
+    },
+    {
+      type         = "select",
+      key          = "genre_operator",
+      label        = "Genres (And/Or)",
+      defaultValue = "and",
+      options = {
+        { value = "and", label = "And" },
+        { value = "or",  label = "Or"  },
+      }
+    },
+    {
+      type  = "tristate",
+      key   = "genres",
+      label = "Genres",
+      options = {
+        { value = "9",    label = "Action"        },
+        { value = "902",  label = "Adult"         },
+        { value = "8",    label = "Adventure"     },
+        { value = "891",  label = "Boys Love"     },
+        { value = "7",    label = "Comedy"        },
+        { value = "903",  label = "Drama"         },
+        { value = "904",  label = "Ecchi"         },
+        { value = "38",   label = "Fanfiction"    },
+        { value = "19",   label = "Fantasy"       },
+        { value = "905",  label = "Gender Bender" },
+        { value = "892",  label = "Girls Love"    },
+        { value = "1015", label = "Harem"         },
+        { value = "21",   label = "Historical"    },
+        { value = "22",   label = "Horror"        },
+        { value = "37",   label = "Isekai"        },
+        { value = "906",  label = "Josei"         },
+        { value = "1180", label = "LitRPG"        },
+        { value = "907",  label = "Martial Arts"  },
+        { value = "20",   label = "Mature"        },
+        { value = "908",  label = "Mecha"         },
+        { value = "909",  label = "Mystery"       },
+        { value = "910",  label = "Psychological" },
+        { value = "6",    label = "Romance"       },
+        { value = "911",  label = "School Life"   },
+        { value = "912",  label = "Sci-fi"        },
+        { value = "913",  label = "Seinen"        },
+        { value = "914",  label = "Slice of Life" },
+        { value = "915",  label = "Smut"          },
+        { value = "916",  label = "Sports"        },
+        { value = "5",    label = "Supernatural"  },
+        { value = "901",  label = "Tragedy"       },
+      }
+    },
+    {
+      type         = "select",
+      key          = "content_warning_operator",
+      label        = "Mature Content (And/Or)",
+      defaultValue = "and",
+      options = {
+        { value = "and", label = "And" },
+        { value = "or",  label = "Or"  },
+      }
+    },
+    {
+      type  = "tristate",
+      key   = "content_warning",
+      label = "Mature Content",
+      options = {
+        { value = "48", label = "Gore"             },
+        { value = "50", label = "Sexual Content"   },
+        { value = "49", label = "Strong Language"  },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page    = index + 1
+  local sort    = filters["sort"]          or "ratings"
+  local order   = filters["order"]         or "desc"
+  local status  = filters["storyStatus"]   or "all"
+  local gmgi    = filters["genre_operator"]         or "and"
+  local cmct    = filters["content_warning_operator"] or "and"
+
+  local gi = filters["genres_included"]          or {}
+  local ge = filters["genres_excluded"]          or {}
+  local ci = filters["content_warning_included"] or {}
+  local ce = filters["content_warning_excluded"] or {}
+
+  local url = baseUrl .. "series-finder/?sf=1"
+              .. "&sort=" .. sort
+              .. "&order=" .. order
+              .. "&cp=" .. status
+              .. "&pg=" .. tostring(page)
+
+  if #gi > 0 then
+    url = url .. "&gi=" .. table.concat(gi, ",")
+    url = url .. "&mgi=" .. gmgi
+  end
+  if #ge > 0 then
+    url = url .. "&ge=" .. table.concat(ge, ",")
+    if #gi == 0 then url = url .. "&mgi=" .. gmgi end
+  end
+  if #ci > 0 then
+    url = url .. "&cti=" .. table.concat(ci, ",")
+    url = url .. "&mct=" .. cmct
+  end
+  if #ce > 0 then
+    url = url .. "&cte=" .. table.concat(ce, ",")
+    if #ci == 0 then url = url .. "&mct=" .. cmct end
+  end
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, card in ipairs(html_select(r.body, ".search_main_box")) do
+    local titleEl = html_select_first(card.html, ".search_title a")
+    if titleEl then
+      local bookUrl = absUrl(titleEl.href)
+      local cover   = html_attr(card.html, ".search_img img", "src")
+      local t = string_clean(titleEl.text)
+      if bookUrl ~= "" and t ~= "" then
+        table.insert(items, { title = t, url = bookUrl, cover = absUrl(cover) })
+      end
+    end
+  end
+
+  return { items = items, hasNext = #items > 0 }
 end

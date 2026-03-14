@@ -1,6 +1,6 @@
 ﻿id       = "novelhall"
 name     = "NovelHall"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://www.novelhall.com"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelhall.png"
@@ -127,4 +127,17 @@ function getChapterText(html, url)
     local el = html_select_first(cleaned, "div#htmlContent")
     if not el then return "" end
     return applyStandardContentTransforms(html_text(el.html))
+end
+-- ── Жанры на странице книги ───────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+
+  local genres = {}
+  for _, a in ipairs(html_select(r.body, ".total a")) do
+    local label = string_trim(a.text)
+    if label ~= "" then table.insert(genres, label) end
+  end
+  return genres
 end
