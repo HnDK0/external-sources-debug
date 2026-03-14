@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobelib"
 name     = "RanobeLib"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://ranobelib.me/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobelib.png"
@@ -166,6 +166,36 @@ function getBookDescription(bookUrl)
   if not data then return nil end
   local desc = data.summary or data.description or ""
   return string_trim(desc) ~= "" and string_trim(desc) or nil
+end
+
+function getBookGenres(bookUrl)
+  local slug = extractSlug(bookUrl)
+  if not slug then return {} end
+
+  local r = http_get(
+    apiBase .. slug .. "?fields[]=genres&fields[]=tags",
+    { headers = apiHeaders }
+  )
+  if not r.success then return {} end
+
+  local parsed = json_parse(r.body)
+  local data = parsed and parsed.data
+  if not data then return {} end
+
+  local genres = {}
+  local function addList(list)
+    if not list then return end
+    for _, item in ipairs(list) do
+      local label = item.name or ""
+      label = string_trim(label)
+      if label ~= "" then table.insert(genres, label) end
+    end
+  end
+
+  addList(data.genres)
+  addList(data.tags)
+
+  return genres
 end
 
 -- ── Список глав (JSON API /api/manga/{slug}/chapters) ────────────────────────

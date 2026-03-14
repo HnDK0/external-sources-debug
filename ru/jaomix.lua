@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "jaomix"
 name     = "Jaomix"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://jaomix.ru/"
 language = "ru"
 icon     = "https://jaomix.ru/wp-content/uploads/2026/02/logo-150x150.png"
@@ -129,6 +129,26 @@ function getBookDescription(bookUrl)
   local el = html_select_first(r.body, "#desc-tab")
   if el then return string_trim(el.text) end
   return nil
+end
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+
+  local genres = {}
+  for _, p in ipairs(html_select(r.body, "#info-book > p")) do
+    local text = string_trim(p.text)
+    if string_starts_with(text, "Жанры:") then
+      local raw = text:gsub("^Жанры:%s*", "")
+      for genre in raw:gmatch("[^,]+") do
+        local label = string_trim(genre)
+        if label ~= "" then table.insert(genres, label) end
+      end
+      break
+    end
+  end
+
+  return genres
 end
 
 -- ── Список глав (AJAX POST, постранично от конца к началу) ────────────────────
