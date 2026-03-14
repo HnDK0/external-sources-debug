@@ -21,7 +21,7 @@ sources:
     language: "ru"
   - id: "ranobehub"
     name: "RanobeHub"
-    version: "1.0.0"
+    version: "1.0.1"
     url: "https://raw.githubusercontent.com/HnDK0/external-sources-debug/main/ru/ranobehub.lua"
     icon: "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobehub.png"
     language: "ru"
