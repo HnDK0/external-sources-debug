@@ -265,7 +265,7 @@ function getFilterList()
       }
     },
 
-    -- Жанры (полный список из TS)
+    -- Жанры
     {
       type  = "tristate",
       key   = "tags",
@@ -315,7 +315,7 @@ function getFilterList()
       }
     },
 
-    -- События (полный список из TS)
+    -- События
     {
       type  = "tristate",
       key   = "events",
