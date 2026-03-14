@@ -1,7 +1,7 @@
 -- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobehub"
 name     = "RanobeHub"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://ranobehub.org"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobehub.png"
@@ -140,6 +140,39 @@ function getBookDescription(bookUrl)
   local desc = data.description or ""
   desc = regex_replace(desc, "<[^>]*>", "")
   return string_trim(desc) ~= "" and string_trim(desc) or nil
+end
+
+-- ── Жанры и теги книги ────────────────────────────────────────────────────────
+--
+-- API возвращает два массива в data.tags:
+--   data.tags.genres — основные жанры (Фэнтези, Романтика, Экшн …)
+--   data.tags.events — события/теги  (Реинкарнация, Академия, ЛитРПГ …)
+--
+-- Для каждого элемента берём names.rus → names.eng → title (в таком приоритете).
+-- Оба массива объединяются в один список — Kotlin не различает "жанр" и "тег",
+-- показывает всё одинаковыми чипами.
+
+function getBookGenres(bookUrl)
+  local data = fetchBookData(bookUrl)
+  if not data or not data.tags then return {} end
+
+  local genres = {}
+
+  local function addTags(tagArray)
+    if not tagArray then return end
+    for _, tag in ipairs(tagArray) do
+      local label = (tag.names and (tag.names.rus or tag.names.eng)) or tag.title or ""
+      label = string_trim(label)
+      if label ~= "" then
+        table.insert(genres, label)
+      end
+    end
+  end
+
+  addTags(data.tags.genres)
+  addTags(data.tags.events)
+
+  return genres
 end
 
 -- ── Список глав ───────────────────────────────────────────────────────────────
