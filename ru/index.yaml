@@ -27,7 +27,7 @@ sources:
     language: "ru"
   - id: "ranobelib"
     name: "RanobeLib"
-    version: "1.0.1"
+    version: "1.0.2"
     url: "https://raw.githubusercontent.com/HnDK0/external-sources-debug/main/ru/ranobelib.lua"
     icon: "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobelib.png"
     language: "ru"
