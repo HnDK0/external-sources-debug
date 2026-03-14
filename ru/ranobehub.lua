@@ -1,7 +1,7 @@
 -- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobehub"
 name     = "RanobeHub"
-version  = "1.0.2"
+version  = "1.0.3"
 baseUrl  = "https://ranobehub.org"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobehub.png"
@@ -40,7 +40,6 @@ local function pickTitle(names, fallback)
   return names.rus or names.eng or names.original or fallback or ""
 end
 
--- Вспомогательная функция — парсит результаты поиска из data.resource
 local function parseResource(data)
   local items = {}
   if not data or not data.resource then return items end
@@ -59,32 +58,27 @@ local function parseResource(data)
   return items
 end
 
--- ── Каталог (JSON API) ────────────────────────────────────────────────────────
+-- ── Каталог ───────────────────────────────────────────────────────────────────
 
 function getCatalogList(index)
   local page = index + 1
   local url = apiBase .. "search?page=" .. tostring(page) .. "&sort=computed_rating&status=0&take=40"
-
   local r = http_get(url)
   if not r.success then return { items = {}, hasNext = false } end
-
   local data = json_parse(r.body)
   local items = parseResource(data)
   return { items = items, hasNext = #items > 0 }
 end
 
--- ── Поиск (JSON API fulltext, только первая страница) ─────────────────────────
+-- ── Поиск ─────────────────────────────────────────────────────────────────────
 
 function getCatalogSearch(index, query)
   if index > 0 then return { items = {}, hasNext = false } end
-
   local url = apiBase .. "fulltext/global?query=" .. url_encode(query) .. "&take=10"
   local r = http_get(url)
   if not r.success then return { items = {}, hasNext = false } end
-
   local results = json_parse(r.body)
   if not results then return { items = {}, hasNext = false } end
-
   local items = {}
   for _, block in ipairs(results) do
     if type(block) == "table" then
@@ -105,11 +99,10 @@ function getCatalogSearch(index, query)
       end
     end
   end
-
   return { items = items, hasNext = false }
 end
 
--- ── Детали книги (JSON API /api/ranobe/{id}) ──────────────────────────────────
+-- ── Детали книги ──────────────────────────────────────────────────────────────
 
 local function fetchBookData(bookUrl)
   local id = extractId(bookUrl)
@@ -142,36 +135,20 @@ function getBookDescription(bookUrl)
   return string_trim(desc) ~= "" and string_trim(desc) or nil
 end
 
--- ── Жанры и теги книги ────────────────────────────────────────────────────────
---
--- API возвращает два массива в data.tags:
---   data.tags.genres — основные жанры (Фэнтези, Романтика, Экшн …)
---   data.tags.events — события/теги  (Реинкарнация, Академия, ЛитРПГ …)
---
--- Для каждого элемента берём names.rus → names.eng → title (в таком приоритете).
--- Оба массива объединяются в один список — Kotlin не различает "жанр" и "тег",
--- показывает всё одинаковыми чипами.
-
 function getBookGenres(bookUrl)
   local data = fetchBookData(bookUrl)
   if not data or not data.tags then return {} end
-
   local genres = {}
-
   local function addTags(tagArray)
     if not tagArray then return end
     for _, tag in ipairs(tagArray) do
       local label = (tag.names and (tag.names.rus or tag.names.eng)) or tag.title or ""
       label = string_trim(label)
-      if label ~= "" then
-        table.insert(genres, label)
-      end
+      if label ~= "" then table.insert(genres, label) end
     end
   end
-
   addTags(data.tags.genres)
   addTags(data.tags.events)
-
   return genres
 end
 
@@ -183,16 +160,13 @@ function getChapterList(bookUrl)
     log_error("ranobehub: cannot extract id from " .. bookUrl)
     return {}
   end
-
   local r = http_get(apiBase .. "ranobe/" .. id .. "/contents")
   if not r.success then
     log_error("ranobehub: contents failed code=" .. tostring(r.code))
     return {}
   end
-
   local data = json_parse(r.body)
   if not data or not data.volumes then return {} end
-
   local chapters = {}
   for _, volume in ipairs(data.volumes) do
     local volNum = tostring(volume.num or "")
@@ -209,7 +183,6 @@ function getChapterList(bookUrl)
       end
     end
   end
-
   return chapters
 end
 
@@ -245,6 +218,7 @@ end
 
 function getFilterList()
   return {
+
     -- Сортировка
     {
       type             = "sort",
@@ -259,6 +233,7 @@ function getFilterList()
         { value = "name_rus",        label = "По названию"           },
         { value = "views",           label = "По просмотрам"         },
         { value = "count_chapters",  label = "По количеству глав"    },
+        { value = "count_of_symbols",label = "По объёму перевода"    },
       }
     },
 
@@ -277,7 +252,7 @@ function getFilterList()
       }
     },
 
-    -- Страна происхождения (checkbox — только включить)
+    -- Страна
     {
       type  = "checkbox",
       key   = "country",
@@ -290,61 +265,344 @@ function getFilterList()
       }
     },
 
-    -- Жанры (tristate — включить / исключить)
+    -- Жанры (полный список из TS)
     {
       type  = "tristate",
       key   = "tags",
       label = "Жанры",
       options = {
-        { value = "22",  label = "Боевые искусства"  },
-        { value = "114", label = "Гарем"             },
-        { value = "7",   label = "Драма"             },
-        { value = "8",   label = "Фэнтези"           },
-        { value = "9",   label = "Романтика"         },
-        { value = "11",  label = "Приключение"       },
-        { value = "13",  label = "Научная фантастика"},
-        { value = "14",  label = "Экшн"              },
-        { value = "17",  label = "Комедия"           },
-        { value = "18",  label = "Психология"        },
-        { value = "19",  label = "Трагедия"          },
-        { value = "20",  label = "Сверхъестественное"},
-        { value = "21",  label = "Школьная жизнь"    },
-        { value = "93",  label = "Повседневность"    },
-        { value = "101", label = "Исторический"      },
-        { value = "115", label = "Для взрослых"      },
-        { value = "189", label = "Сёнэн"             },
-        { value = "216", label = "Дзёсэй"            },
-        { value = "242", label = "Сюаньхуа"          },
-        { value = "364", label = "Сянься"            },
+        { value = "22",  label = "Боевые искусства"   },
+        { value = "114", label = "Гарем"              },
+        { value = "246", label = "Гендер бендер"      },
+        { value = "216", label = "Дзёсэй"             },
+        { value = "115", label = "Для взрослых"       },
+        { value = "7",   label = "Драма"              },
+        { value = "101", label = "Исторический"       },
+        { value = "17",  label = "Комедия"            },
+        { value = "638", label = "Лоликон"            },
+        { value = "922", label = "Магический реализм" },
+        { value = "24",  label = "Меха"               },
+        { value = "12",  label = "Милитари"           },
+        { value = "2",   label = "Мистика"            },
+        { value = "13",  label = "Научная фантастика" },
+        { value = "747", label = "Непристойность"     },
+        { value = "93",  label = "Повседневность"     },
+        { value = "11",  label = "Приключение"        },
+        { value = "18",  label = "Психология"         },
+        { value = "9",   label = "Романтика"          },
+        { value = "20",  label = "Сверхъестественное" },
+        { value = "15",  label = "Сёдзё"              },
+        { value = "23",  label = "Сёдзё-ай"           },
+        { value = "189", label = "Сёнэн"              },
+        { value = "680", label = "Сёнэн-ай"           },
+        { value = "420", label = "Спорт"              },
+        { value = "5",   label = "Сэйнэн"             },
+        { value = "242", label = "Сюаньхуа"           },
+        { value = "364", label = "Сянься"             },
+        { value = "19",  label = "Трагедия"           },
+        { value = "3",   label = "Триллер"            },
+        { value = "1",   label = "Ужасы"              },
+        { value = "720", label = "Уся"                },
+        { value = "8",   label = "Фэнтези"            },
+        { value = "21",  label = "Школьная жизнь"     },
+        { value = "14",  label = "Экшн"               },
+        { value = "327", label = "Эччи"               },
+        { value = "691", label = "Юри"                },
+        { value = "682", label = "Яой"                },
+        { value = "907", label = "Eastern fantasy"    },
+        { value = "999", label = "Isekai"             },
+        { value = "993", label = "Video games"        },
       }
     },
 
-    -- События (tristate — объединяются с tags при отправке запроса)
+    -- События (полный список из TS)
     {
       type  = "tristate",
       key   = "events",
       label = "События",
       options = {
-        { value = "25",  label = "Академия"              },
-        { value = "116", label = "Алхимия"               },
-        { value = "28",  label = "Альтернативный мир"    },
-        { value = "314", label = "Апокалипсис"           },
-        { value = "290", label = "Выживание"             },
-        { value = "302", label = "Геймеры"               },
-        { value = "266", label = "Вампиры"               },
-        { value = "281", label = "Реинкарнация"          },
-        { value = "88",  label = "Месть"                 },
-        { value = "79",  label = "Петля времени"         },
-        { value = "80",  label = "Путешествие во времени"},
-        { value = "306", label = "ММОРПГ (ЛитРПГ)"       },
-        { value = "313", label = "Виртуальная реальность"},
-        { value = "139", label = "Переселение души"      },
-        { value = "41",  label = "Дворяне"               },
-        { value = "85",  label = "Навязчивая любовь"     },
-        { value = "151", label = "Дарк"                  },
-        { value = "42",  label = "Всемогущий ГГ"         },
-        { value = "45",  label = "ГГ силён с начала"     },
-        { value = "81",  label = "Из слабого в сильного" },
+        { value = "611", label = "[Награжденная работа]"          },
+        { value = "338", label = "18+"                            },
+        { value = "353", label = "Авантюристы"                    },
+        { value = "538", label = "Автоматоны"                     },
+        { value = "434", label = "Агрессивные персонажи"          },
+        { value = "509", label = "Ад"                             },
+        { value = "522", label = "Адаптация в радиопостановку"    },
+        { value = "25",  label = "Академия"                       },
+        { value = "578", label = "Актеры озвучки"                 },
+        { value = "132", label = "Активный главный герой"         },
+        { value = "116", label = "Алхимия"                        },
+        { value = "28",  label = "Альтернативный мир"             },
+        { value = "247", label = "Амнезия/Потеря памяти"          },
+        { value = "657", label = "Анабиоз"                        },
+        { value = "218", label = "Ангелы"                         },
+        { value = "217", label = "Андрогинные персонажи"          },
+        { value = "82",  label = "Андроиды"                       },
+        { value = "471", label = "Анти-магия"                     },
+        { value = "346", label = "Антигерой"                      },
+        { value = "572", label = "Антикварный магазин"            },
+        { value = "562", label = "Антисоциальный главный герой"   },
+        { value = "663", label = "Антиутопия"                     },
+        { value = "29",  label = "Апатичный протагонист"          },
+        { value = "314", label = "Апокалипсис"                    },
+        { value = "285", label = "Аранжированный брак"            },
+        { value = "598", label = "Армия"                          },
+        { value = "117", label = "Артефакты"                      },
+        { value = "460", label = "Артисты"                        },
+        { value = "581", label = "Банды"                          },
+        { value = "309", label = "Бедный главный герой"           },
+        { value = "144", label = "Безжалостный главный герой"     },
+        { value = "355", label = "Беззаботный главный герой"      },
+        { value = "650", label = "Безусловная любовь"             },
+        { value = "131", label = "Беременность"                   },
+        { value = "222", label = "Бесполый главный герой"         },
+        { value = "275", label = "Бессмертные"                    },
+        { value = "619", label = "Бесстрашный протагонист"        },
+        { value = "256", label = "Бесстыдный главный герой"       },
+        { value = "699", label = "Бесчестный главный герой"       },
+        { value = "342", label = "Библиотека"                     },
+        { value = "813", label = "Бизнесмен"                      },
+        { value = "120", label = "Биочип"                         },
+        { value = "822", label = "Бисексуальный главный герой"    },
+        { value = "148", label = "Близнецы"                       },
+        { value = "211", label = "Боги"                           },
+        { value = "356", label = "Богини"                         },
+        { value = "369", label = "Боевая академия"                },
+        { value = "347", label = "Боевые духи"                    },
+        { value = "422", label = "Боевые соревнования"            },
+        { value = "336", label = "Божественная защита"            },
+        { value = "224", label = "Божественные силы"              },
+        { value = "348", label = "Большая разница в возрасте"     },
+        { value = "544", label = "Борьба за власть"               },
+        { value = "363", label = "Брак"                           },
+        { value = "65",  label = "Брак по расчету"                },
+        { value = "31",  label = "Братский комплекс"              },
+        { value = "413", label = "Братство"                       },
+        { value = "518", label = "Братья и сестры"                },
+        { value = "742", label = "Буддизм"                        },
+        { value = "273", label = "Быстрая культивация"            },
+        { value = "221", label = "Быстрообучаемый"                },
+        { value = "667", label = "Валькирии"                      },
+        { value = "266", label = "Вампиры"                        },
+        { value = "169", label = "Ведьмы"                         },
+        { value = "289", label = "Вежливый главный герой"         },
+        { value = "225", label = "Верные подчиненные"             },
+        { value = "183", label = "Взрослый главный герой"         },
+        { value = "636", label = "Видит то, чего не видят другие" },
+        { value = "313", label = "Виртуальная реальность"         },
+        { value = "653", label = "Владелец магазина"              },
+        { value = "376", label = "Внезапная сила"                 },
+        { value = "802", label = "Внезапное богатство"            },
+        { value = "334", label = "Внешний вид не соответствует возрасту" },
+        { value = "740", label = "Военные Летописи"               },
+        { value = "673", label = "Возвращение из другого мира"    },
+        { value = "58",  label = "Войны"                          },
+        { value = "477", label = "Волшебники/Волшебницы"          },
+        { value = "201", label = "Волшебные звери"                },
+        { value = "614", label = "Воображаемый друг"              },
+        { value = "326", label = "Воры"                           },
+        { value = "78",  label = "Воскрешение"                    },
+        { value = "428", label = "Враги становятся возлюбленными" },
+        { value = "502", label = "Враги становятся союзниками"    },
+        { value = "558", label = "Врата в другой мир"             },
+        { value = "286", label = "Врачи"                          },
+        { value = "163", label = "Временной парадокс"             },
+        { value = "42",  label = "Всемогущий главный герой"       },
+        { value = "77",  label = "Вторжение на землю"             },
+        { value = "112", label = "Второй шанс"                    },
+        { value = "290", label = "Выживание"                      },
+        { value = "268", label = "Высокомерные персонажи"         },
+        { value = "540", label = "Гадание"                        },
+        { value = "302", label = "Геймеры"                        },
+        { value = "223", label = "Генералы"                       },
+        { value = "620", label = "Генетические модификации"       },
+        { value = "566", label = "Гениальный главный герой"       },
+        { value = "173", label = "Герои"                          },
+        { value = "525", label = "Героиня — сорванец"             },
+        { value = "64",  label = "Герой влюбляется первым"        },
+        { value = "510", label = "Гетерохромия"                   },
+        { value = "323", label = "Гильдии"                        },
+        { value = "768", label = "Гипнотизм"                      },
+        { value = "486", label = "Главный герой — бог"            },
+        { value = "63",  label = "Главный герой — женщина"        },
+        { value = "39",  label = "Главный герой — мужчина"        },
+        { value = "415", label = "Главный герой — ребенок"        },
+        { value = "45",  label = "Главный герой силен с самого начала" },
+        { value = "549", label = "Гладиаторы"                     },
+        { value = "295", label = "Глуповатый главный герой"       },
+        { value = "529", label = "Гоблины"                        },
+        { value = "380", label = "Горничные"                      },
+        { value = "193", label = "Готовка"                        },
+        { value = "303", label = "Гриндинг"                       },
+        { value = "792", label = "Даосизм"                        },
+        { value = "151", label = "Дарк"                           },
+        { value = "220", label = "Дварфы"                         },
+        { value = "41",  label = "Дворяне"                        },
+        { value = "354", label = "Дворянство/Аристократия"        },
+        { value = "6",   label = "Демоны"                         },
+        { value = "494", label = "Депрессия"                      },
+        { value = "561", label = "Детективы"                      },
+        { value = "34",  label = "Дискриминация"                  },
+        { value = "200", label = "Долгая разлука"                 },
+        { value = "178", label = "Домашние дела"                  },
+        { value = "195", label = "Драконы"                        },
+        { value = "555", label = "Драконьи всадники"              },
+        { value = "102", label = "Древние времена"                },
+        { value = "284", label = "Древний Китай"                  },
+        { value = "97",  label = "Дружба"                         },
+        { value = "170", label = "Друзья детства"                 },
+        { value = "507", label = "Друзья становятся врагами"      },
+        { value = "46",  label = "Духи/Призраки"                  },
+        { value = "136", label = "Души"                           },
+        { value = "516", label = "Ёкаи"                           },
+        { value = "26",  label = "Есть аниме-адаптация"           },
+        { value = "27",  label = "Есть манга-адаптация"           },
+        { value = "453", label = "Есть манхва-адаптация"          },
+        { value = "298", label = "Есть маньхуа-адаптация"         },
+        { value = "421", label = "Есть сериал-адаптация"          },
+        { value = "47",  label = "Есть фильм по мотивам"          },
+        { value = "127", label = "Жестокость"                     },
+        { value = "466", label = "Животные черты"                 },
+        { value = "176", label = "Заботливый главный герой"       },
+        { value = "177", label = "Заговоры"                       },
+        { value = "269", label = "Закалка тела"                   },
+        { value = "533", label = "Замкнутый главный герой"        },
+        { value = "344", label = "Запечатанная сила"              },
+        { value = "443", label = "Застенчивые персонажи"          },
+        { value = "119", label = "Звери"                          },
+        { value = "192", label = "Звери-компаньоны"               },
+        { value = "125", label = "Злой протагонист"               },
+        { value = "437", label = "Злые боги"                      },
+        { value = "503", label = "Злые организации"               },
+        { value = "397", label = "Знаменитости"                   },
+        { value = "469", label = "Знаменитый главный герой"       },
+        { value = "185", label = "Знания современного мира"       },
+        { value = "321", label = "Зомби"                          },
+        { value = "162", label = "Игра на выживание"              },
+        { value = "301", label = "Игровая система рейтинга"       },
+        { value = "152", label = "Игровые элементы"               },
+        { value = "330", label = "Из грязи в князи"               },
+        { value = "81",  label = "Из слабого в сильного"          },
+        { value = "472", label = "Изгои"                          },
+        { value = "99",  label = "Изменения личности"             },
+        { value = "749", label = "Империи"                        },
+        { value = "35",  label = "Инженер"                        },
+        { value = "118", label = "Искусственный интеллект"        },
+        { value = "123", label = "Культивация"                    },
+        { value = "430", label = "Легенды"                        },
+        { value = "604", label = "Легкая жизнь"                   },
+        { value = "570", label = "Ленивый главный герой"          },
+        { value = "424", label = "Лидерство"                      },
+        { value = "98",  label = "Любовный треугольник"           },
+        { value = "38",  label = "Магия"                          },
+        { value = "357", label = "Магические технологии"          },
+        { value = "130", label = "Манипулятивные персонажи"       },
+        { value = "441", label = "Медицинские знания"             },
+        { value = "113", label = "Медленная романтическая линия"  },
+        { value = "316", label = "Межпространственные путешествия"},
+        { value = "182", label = "Менеджмент"                     },
+        { value = "88",  label = "Месть"                          },
+        { value = "55",  label = "Меч и магия"                    },
+        { value = "468", label = "Мифология"                      },
+        { value = "306", label = "ММОРПГ (ЛитРПГ)"                },
+        { value = "278", label = "Множество реальностей"          },
+        { value = "69",  label = "Монстры"                        },
+        { value = "589", label = "Музыка"                         },
+        { value = "85",  label = "Навязчивая любовь"              },
+        { value = "324", label = "Наемники"                       },
+        { value = "66",  label = "Наивный главный герой"          },
+        { value = "372", label = "Наследование"                   },
+        { value = "140", label = "Недооцененный главный герой"    },
+        { value = "202", label = "Недоразумения"                  },
+        { value = "308", label = "Некромант"                      },
+        { value = "304", label = "Одинокий главный герой"         },
+        { value = "86",  label = "Параллельные миры"              },
+        { value = "43",  label = "Политика"                       },
+        { value = "60",  label = "Постапокалиптика"               },
+        { value = "103", label = "Предательство"                  },
+        { value = "51",  label = "Призраки"                       },
+        { value = "147", label = "Призванный герой"               },
+        { value = "296", label = "Полигамия"                      },
+        { value = "281", label = "Реинкарнация"                   },
+        { value = "204", label = "Реинкарнация в монстра"         },
+        { value = "281", label = "Реинкарнация"                   },
+        { value = "142", label = "Рыцари"                         },
+        { value = "331", label = "Секретные организации"          },
+        { value = "251", label = "Семья"                          },
+        { value = "282", label = "Сила духа"                      },
+        { value = "109", label = "Сильная пара"                   },
+        { value = "198", label = "Система уровней"                },
+        { value = "252", label = "Скрытие истинных способностей"  },
+        { value = "128", label = "Скрытые способности"            },
+        { value = "49",  label = "Смерть"                         },
+        { value = "40",  label = "Современность"                  },
+        { value = "181", label = "Создание королевства"           },
+        { value = "71",  label = "Солдаты/Военные"                },
+        { value = "54",  label = "Специальные способности"        },
+        { value = "32",  label = "Спокойный главный герой"        },
+        { value = "184", label = "Средневековье"                  },
+        { value = "425", label = "Стратег"                        },
+        { value = "160", label = "Стратегические битвы"           },
+        { value = "271", label = "Судьба"                         },
+        { value = "74",  label = "Таинственная болезнь"           },
+        { value = "263", label = "Таинственное прошлое"           },
+        { value = "452", label = "Телохранители"                  },
+        { value = "515", label = "Террористы"                     },
+        { value = "416", label = "Торговцы"                       },
+        { value = "89",  label = "Травля/Буллинг"                 },
+        { value = "164", label = "Трагическое прошлое"            },
+        { value = "37",  label = "Трудолюбивый главный герой"     },
+        { value = "84",  label = "Убийства"                       },
+        { value = "248", label = "Убийцы"                         },
+        { value = "270", label = "Уверенный главный герой"        },
+        { value = "337", label = "Укротитель монстров"            },
+        { value = "280", label = "Умения из прошлой жизни"        },
+        { value = "33",  label = "Умный главный герой"            },
+        { value = "340", label = "Уникальное оружие"              },
+        { value = "315", label = "Управление бизнесом"            },
+        { value = "300", label = "Ускоренный рост"                },
+        { value = "345", label = "Учителя"                        },
+        { value = "322", label = "Фантастические существа"        },
+        { value = "379", label = "Фарминг"                        },
+        { value = "210", label = "Феи"                            },
+        { value = "374", label = "Фениксы"                        },
+        { value = "87",  label = "Философия"                      },
+        { value = "126", label = "Фэнтези мир"                    },
+        { value = "399", label = "Хакеры"                         },
+        { value = "462", label = "Хикикомори/Затворники"          },
+        { value = "105", label = "Хитроумный главный герой"       },
+        { value = "557", label = "Хозяин подземелий"              },
+        { value = "259", label = "Холодный главный герой"         },
+        { value = "506", label = "Хорошие отношения с семьей"     },
+        { value = "389", label = "Целители"                       },
+        { value = "445", label = "Цундэрэ"                        },
+        { value = "240", label = "Честный главный герой"          },
+        { value = "238", label = "Читы"                           },
+        { value = "239", label = "Шеф-повар"                      },
+        { value = "21",  label = "Школьная жизнь"                 },
+        { value = "407", label = "Шоу-бизнес"                     },
+        { value = "563", label = "Шпионы"                         },
+        { value = "196", label = "Эволюция"                       },
+        { value = "492", label = "Экономика"                      },
+        { value = "172", label = "Эльфы"                          },
+        { value = "208", label = "Яндере"                         },
+        { value = "272", label = "Ярко выраженная романтическая линия" },
+        -- EN теги
+        { value = "860", label = "Coming of Age"                  },
+        { value = "690", label = "Couple Growth"                  },
+        { value = "665", label = "Doting Love Interests"          },
+        { value = "530", label = "Doting Parents"                 },
+        { value = "990", label = "Dungeon/s-exploring"            },
+        { value = "994", label = "Gamelit"                        },
+        { value = "991", label = "High-fantasy"                   },
+        { value = "977", label = "Litrpg"                         },
+        { value = "988", label = "Modern"                         },
+        { value = "992", label = "Portal-fantasy/isekai"          },
+        { value = "987", label = "Suspense"                       },
+        { value = "875", label = "Sword-and-sorcery"              },
+        { value = "1037",label = "Low-fantasy"                    },
+        { value = "1041",label = "Urban-fantasy"                  },
+        { value = "1044",label = "Unlimited Flow"                 },
       }
     },
   }
@@ -355,17 +613,10 @@ end
 function getCatalogFiltered(index, filters)
   local page = index + 1
 
-  -- Сортировка
-  local sort = filters["sort"] or "computed_rating"
-
-  -- Статус
-  local status = filters["status"] or "0"
-
-  -- Страна (checkbox: через запятую)
+  local sort       = filters["sort"] or "computed_rating"
+  local status     = filters["status"] or "0"
   local country_inc = filters["country_included"] or {}
 
-  -- Объединяем tags + events в tags:positive / tags:negative
-  -- (паттерн ranobehub: оба типа тегов идут в один параметр API)
   local tags_inc = {}
   local tags_exc = {}
   for _, key in ipairs({"tags", "events"}) do
@@ -375,25 +626,17 @@ function getCatalogFiltered(index, filters)
     for i = 1, #exc do tags_exc[#tags_exc + 1] = exc[i] end
   end
 
-  -- Строим URL
   local url = apiBase .. "search?page=" .. tostring(page)
               .. "&sort=" .. url_encode(sort)
               .. "&status=" .. status
               .. "&take=40"
 
-  -- Страна
   if #country_inc > 0 then
-    local parts = {}
-    for i = 1, #country_inc do parts[#parts + 1] = country_inc[i] end
-    url = url .. "&country=" .. table.concat(parts, ",")
+    url = url .. "&country=" .. table.concat(country_inc, ",")
   end
-
-  -- Теги: включить
   if #tags_inc > 0 then
     url = url .. "&tags:positive=" .. table.concat(tags_inc, ",")
   end
-
-  -- Теги: исключить
   if #tags_exc > 0 then
     url = url .. "&tags:negative=" .. table.concat(tags_exc, ",")
   end
