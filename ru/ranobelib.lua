@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobelib"
 name     = "RanobeLib"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://ranobelib.me/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobelib.png"
@@ -34,8 +34,14 @@ end
 -- Прокси wsrv.nl для обхода hotlink-защиты CDN
 local function proxyCover(raw)
   if not raw or raw == "" then return "" end
-  if not string_starts_with(raw, "http") then return raw end
-  return "https://images.weserv.nl/?url=" .. url_encode(raw)
+  -- Нормализуем URL: добавляем протокол если отсутствует
+  local full = raw
+  if string_starts_with(raw, "//") then
+    full = "https:" .. raw
+  elseif not string_starts_with(raw, "http") then
+    full = "https://" .. raw
+  end
+  return "https://images.weserv.nl/?url=" .. url_encode(full)
 end
 
 local function applyStandardContentTransforms(text)
