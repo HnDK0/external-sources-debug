@@ -1,7 +1,7 @@
-﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
+-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobehub"
 name     = "RanobeHub"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://ranobehub.org"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobehub.png"
@@ -19,13 +19,9 @@ local function absUrl(href)
   return url_resolve(baseUrl, href)
 end
 
--- Извлекает числовой ID книги из URL вида:
---   https://ranobehub.org/ranobe/1234  →  "1234"
---   https://ranobehub.org/ranobe/1234-slug  →  "1234"
 local function extractId(bookUrl)
   local segment = bookUrl:gsub(baseUrl .. "/ranobe/", ""):match("^([^/?#]+)")
   if not segment then return nil end
-  -- ID всегда идёт первым (может быть "1234" или "1234-slug")
   return segment:match("^(%d+)")
 end
 
@@ -39,25 +35,15 @@ local function applyStandardContentTransforms(text)
   return text
 end
 
--- Выбирает лучшее из нескольких вариантов названия (рус > англ > ориг > name)
 local function pickTitle(names, fallback)
   if not names then return fallback or "" end
   return names.rus or names.eng or names.original or fallback or ""
 end
 
--- ── Каталог (JSON API) ────────────────────────────────────────────────────────
-
-function getCatalogList(index)
-  local page = index + 1
-  local url = apiBase .. "search?page=" .. tostring(page) .. "&sort=computed_rating&status=0&take=40"
-
-  local r = http_get(url)
-  if not r.success then return { items = {}, hasNext = false } end
-
-  local data = json_parse(r.body)
-  if not data or not data.resource then return { items = {}, hasNext = false } end
-
+-- Вспомогательная функция — парсит результаты поиска из data.resource
+local function parseResource(data)
   local items = {}
+  if not data or not data.resource then return items end
   for _, novel in ipairs(data.resource) do
     local title = pickTitle(novel.names, novel.name)
     local id    = tostring(novel.id or "")
@@ -70,7 +56,20 @@ function getCatalogList(index)
       })
     end
   end
+  return items
+end
 
+-- ── Каталог (JSON API) ────────────────────────────────────────────────────────
+
+function getCatalogList(index)
+  local page = index + 1
+  local url = apiBase .. "search?page=" .. tostring(page) .. "&sort=computed_rating&status=0&take=40"
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local data = json_parse(r.body)
+  local items = parseResource(data)
   return { items = items, hasNext = #items > 0 }
 end
 
@@ -87,7 +86,6 @@ function getCatalogSearch(index, query)
   if not results then return { items = {}, hasNext = false } end
 
   local items = {}
-  -- Ответ — массив блоков по типу контента; нас интересуют только "ranobe"
   for _, block in ipairs(results) do
     if type(block) == "table" then
       local meta = block.meta
@@ -95,7 +93,6 @@ function getCatalogSearch(index, query)
         for _, novel in ipairs(block.data) do
           local title = pickTitle(novel.names, novel.name)
           local id    = tostring(novel.id or "")
-          -- Поиск возвращает /small обложку — заменяем на /medium
           local cover = novel.image and novel.image:gsub("/small", "/medium") or ""
           if title ~= "" and id ~= "" then
             table.insert(items, {
@@ -141,12 +138,11 @@ function getBookDescription(bookUrl)
   local data = fetchBookData(bookUrl)
   if not data then return nil end
   local desc = data.description or ""
-  -- Убираем HTML-теги если они есть
   desc = regex_replace(desc, "<[^>]*>", "")
   return string_trim(desc) ~= "" and string_trim(desc) or nil
 end
 
--- ── Список глав (JSON API /api/ranobe/{id}/contents, тома + главы) ────────────
+-- ── Список глав ───────────────────────────────────────────────────────────────
 
 function getChapterList(bookUrl)
   local id = extractId(bookUrl)
@@ -169,9 +165,9 @@ function getChapterList(bookUrl)
     local volNum = tostring(volume.num or "")
     if volume.chapters then
       for _, chapter in ipairs(volume.chapters) do
-        local chNum  = tostring(chapter.num or "")
-        local title  = chapter.name or ("Chapter " .. chNum)
-        local chUrl  = baseUrl .. "/ranobe/" .. id .. "/" .. volNum .. "/" .. chNum
+        local chNum = tostring(chapter.num or "")
+        local title = chapter.name or ("Chapter " .. chNum)
+        local chUrl = baseUrl .. "/ranobe/" .. id .. "/" .. volNum .. "/" .. chNum
         table.insert(chapters, {
           title  = string_clean(title),
           url    = chUrl,
@@ -193,7 +189,6 @@ function getChapterListHash(bookUrl)
   if not r.success then return nil end
   local data = json_parse(r.body)
   if not data or not data.volumes then return nil end
-  -- Последний том → последняя глава → её номер
   local volumes = data.volumes
   local lastVol = volumes[#volumes]
   if not lastVol or not lastVol.chapters then return nil end
@@ -202,29 +197,178 @@ function getChapterListHash(bookUrl)
 end
 
 -- ── Текст главы ───────────────────────────────────────────────────────────────
---
--- Сайт отдаёт SSR HTML. Контент главы находится в блоке между заголовком
--- и комментариями. Используем несколько селекторов по убыванию точности.
 
 function getChapterText(html, url)
-  -- Структура страницы:
-  -- <div class="ui text container" data-container="CHAPTER_ID">
-  --   <div class="title-wrapper"><h1>Глава N</h1></div>
-  --   <p>абзац...</p>  ← параграфы напрямую в контейнере
-  --   <p>абзац...</p>
-  -- </div>
-  -- Следующий <div class="ui text container"> (без data-container) — футер с навигацией.
-
-  -- Убираем скрипты и рекламу до парсинга
   local cleaned = html_remove(html, "script", "style", ".ads-desktop", ".ads-mobile")
-
-  -- Контейнер главы отличается от остальных наличием data-container
   local el = html_select_first(cleaned, "div.ui.text.container[data-container]")
   if el then
-    -- Убираем title-wrapper (заголовок) и hoticons внутри контейнера
     local inner = html_remove(el.html, ".title-wrapper", ".chapter-hoticons")
     return applyStandardContentTransforms(html_text(inner))
   end
-
   return ""
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    -- Сортировка
+    {
+      type             = "sort",
+      key              = "sort",
+      label            = "Сортировка",
+      defaultValue     = "computed_rating",
+      defaultAscending = false,
+      options = {
+        { value = "computed_rating", label = "По рейтингу"           },
+        { value = "last_chapter_at", label = "По дате обновления"    },
+        { value = "created_at",      label = "По дате добавления"    },
+        { value = "name_rus",        label = "По названию"           },
+        { value = "views",           label = "По просмотрам"         },
+        { value = "count_chapters",  label = "По количеству глав"    },
+      }
+    },
+
+    -- Статус перевода
+    {
+      type         = "select",
+      key          = "status",
+      label        = "Статус перевода",
+      defaultValue = "0",
+      options = {
+        { value = "0", label = "Любой"      },
+        { value = "1", label = "В процессе" },
+        { value = "2", label = "Завершено"  },
+        { value = "3", label = "Заморожено" },
+        { value = "4", label = "Неизвестно" },
+      }
+    },
+
+    -- Страна происхождения (checkbox — только включить)
+    {
+      type  = "checkbox",
+      key   = "country",
+      label = "Страна",
+      options = {
+        { value = "1", label = "Япония" },
+        { value = "2", label = "Китай"  },
+        { value = "3", label = "Корея"  },
+        { value = "4", label = "США"    },
+      }
+    },
+
+    -- Жанры (tristate — включить / исключить)
+    {
+      type  = "tristate",
+      key   = "tags",
+      label = "Жанры",
+      options = {
+        { value = "22",  label = "Боевые искусства"  },
+        { value = "114", label = "Гарем"             },
+        { value = "7",   label = "Драма"             },
+        { value = "8",   label = "Фэнтези"           },
+        { value = "9",   label = "Романтика"         },
+        { value = "11",  label = "Приключение"       },
+        { value = "13",  label = "Научная фантастика"},
+        { value = "14",  label = "Экшн"              },
+        { value = "17",  label = "Комедия"           },
+        { value = "18",  label = "Психология"        },
+        { value = "19",  label = "Трагедия"          },
+        { value = "20",  label = "Сверхъестественное"},
+        { value = "21",  label = "Школьная жизнь"    },
+        { value = "93",  label = "Повседневность"    },
+        { value = "101", label = "Исторический"      },
+        { value = "115", label = "Для взрослых"      },
+        { value = "189", label = "Сёнэн"             },
+        { value = "216", label = "Дзёсэй"            },
+        { value = "242", label = "Сюаньхуа"          },
+        { value = "364", label = "Сянься"            },
+      }
+    },
+
+    -- События (tristate — объединяются с tags при отправке запроса)
+    {
+      type  = "tristate",
+      key   = "events",
+      label = "События",
+      options = {
+        { value = "25",  label = "Академия"              },
+        { value = "116", label = "Алхимия"               },
+        { value = "28",  label = "Альтернативный мир"    },
+        { value = "314", label = "Апокалипсис"           },
+        { value = "290", label = "Выживание"             },
+        { value = "302", label = "Геймеры"               },
+        { value = "266", label = "Вампиры"               },
+        { value = "281", label = "Реинкарнация"          },
+        { value = "88",  label = "Месть"                 },
+        { value = "79",  label = "Петля времени"         },
+        { value = "80",  label = "Путешествие во времени"},
+        { value = "306", label = "ММОРПГ (ЛитРПГ)"       },
+        { value = "313", label = "Виртуальная реальность"},
+        { value = "139", label = "Переселение души"      },
+        { value = "41",  label = "Дворяне"               },
+        { value = "85",  label = "Навязчивая любовь"     },
+        { value = "151", label = "Дарк"                  },
+        { value = "42",  label = "Всемогущий ГГ"         },
+        { value = "45",  label = "ГГ силён с начала"     },
+        { value = "81",  label = "Из слабого в сильного" },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page = index + 1
+
+  -- Сортировка
+  local sort = filters["sort"] or "computed_rating"
+
+  -- Статус
+  local status = filters["status"] or "0"
+
+  -- Страна (checkbox: через запятую)
+  local country_inc = filters["country_included"] or {}
+
+  -- Объединяем tags + events в tags:positive / tags:negative
+  -- (паттерн ranobehub: оба типа тегов идут в один параметр API)
+  local tags_inc = {}
+  local tags_exc = {}
+  for _, key in ipairs({"tags", "events"}) do
+    local inc = filters[key .. "_included"] or {}
+    local exc = filters[key .. "_excluded"] or {}
+    for i = 1, #inc do tags_inc[#tags_inc + 1] = inc[i] end
+    for i = 1, #exc do tags_exc[#tags_exc + 1] = exc[i] end
+  end
+
+  -- Строим URL
+  local url = apiBase .. "search?page=" .. tostring(page)
+              .. "&sort=" .. url_encode(sort)
+              .. "&status=" .. status
+              .. "&take=40"
+
+  -- Страна
+  if #country_inc > 0 then
+    local parts = {}
+    for i = 1, #country_inc do parts[#parts + 1] = country_inc[i] end
+    url = url .. "&country=" .. table.concat(parts, ",")
+  end
+
+  -- Теги: включить
+  if #tags_inc > 0 then
+    url = url .. "&tags:positive=" .. table.concat(tags_inc, ",")
+  end
+
+  -- Теги: исключить
+  if #tags_exc > 0 then
+    url = url .. "&tags:negative=" .. table.concat(tags_exc, ",")
+  end
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local data = json_parse(r.body)
+  local items = parseResource(data)
+  return { items = items, hasNext = #items > 0 }
 end
