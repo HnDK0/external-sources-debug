@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobelib"
 name     = "RanobeLib"
-version  = "1.0.2"
+version  = "1.0.4"
 baseUrl  = "https://ranobelib.me/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobelib.png"
@@ -31,17 +31,11 @@ local function absUrl(href)
   return url_resolve(baseUrl, href)
 end
 
--- Прокси wsrv.nl для обхода hotlink-защиты CDN
-local function proxyCover(raw)
+local function normalizeCover(raw)
   if not raw or raw == "" then return "" end
-  -- Нормализуем URL: добавляем протокол если отсутствует
-  local full = raw
-  if string_starts_with(raw, "//") then
-    full = "https:" .. raw
-  elseif not string_starts_with(raw, "http") then
-    full = "https://" .. raw
-  end
-  return "https://images.weserv.nl/?url=" .. url_encode(full)
+  if string_starts_with(raw, "//")   then return "https:" .. raw end
+  if string_starts_with(raw, "http") then return raw end
+  return "https://" .. raw
 end
 
 local function applyStandardContentTransforms(text)
@@ -103,7 +97,7 @@ function getCatalogList(index)
       table.insert(items, {
         title = string_clean(title),
         url   = baseUrl .. "ru/" .. slug,
-        cover = proxyCover(cover)
+        cover = normalizeCover(cover)
       })
     end
   end
@@ -135,7 +129,7 @@ function getCatalogSearch(index, query)
       table.insert(items, {
         title = string_clean(title),
         url   = baseUrl .. "ru/" .. slug,
-        cover = proxyCover(cover)
+        cover = normalizeCover(cover)
       })
     end
   end
@@ -173,7 +167,7 @@ function getBookCoverImageUrl(bookUrl)
   local data = fetchBookJson(bookUrl)
   if not data then return nil end
   local cover = getPath(data, "cover.default") or ""
-  return cover ~= "" and proxyCover(cover) or nil
+  return cover ~= "" and normalizeCover(cover) or nil
 end
 
 function getBookDescription(bookUrl)
@@ -329,10 +323,7 @@ local function jsonToHtml(nodes, attachMap)
       end
       local imgUrl = (imgId and attachMap[tostring(imgId)]) or attrs.src or ""
       if imgUrl ~= "" then
-        -- Прокси для изображений контента
-        local stripped = regex_replace(imgUrl, "^https?://", "")
-        local proxied  = "https://images.weserv.nl/?url=" .. url_encode(stripped) .. "&https=1"
-        table.insert(parts, "<img src=\"" .. proxied .. "\">")
+        table.insert(parts, "<img src=\"" .. normalizeCover(imgUrl) .. "\">")
       end
 
     else
@@ -402,8 +393,7 @@ function getChapterText(html, chapterUrl)
       function(m)
         local raw = m:match('src="([^"]+)"')
         if not raw then return m end
-        local stripped = regex_replace(raw, "^https?://", "")
-        return 'src="https://images.weserv.nl/?url=' .. url_encode(stripped) .. '&https=1"'
+        return 'src="' .. normalizeCover(raw) .. '"'
       end
     )
   end
@@ -680,7 +670,7 @@ function getCatalogFiltered(index, filters)
       table.insert(items, {
         title = string_clean(title),
         url   = baseUrl .. "ru/" .. slug,
-        cover = proxyCover(cover)
+        cover = normalizeCover(cover)
       })
     end
   end
