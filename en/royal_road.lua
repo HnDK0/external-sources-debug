@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "royal_road"
 name     = "Royal Road"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://www.royalroad.com"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/royalroad.png"
@@ -167,18 +167,6 @@ end
 function getFilterList()
   return {
     {
-      type  = "text",
-      key   = "keyword",
-      label = "Keyword (title or description)",
-      defaultValue = "",
-    },
-    {
-      type  = "text",
-      key   = "author",
-      label = "Author",
-      defaultValue = "",
-    },
-    {
       type         = "select",
       key          = "orderBy",
       label        = "Order by",
@@ -232,28 +220,61 @@ function getFilterList()
       }
     },
     {
-      type  = "text",
-      key   = "minPages",
-      label = "Min Pages",
+      type         = "select",
+      key          = "minPages",
+      label        = "Min Pages",
       defaultValue = "0",
+      options = {
+        { value = "0",     label = "Any"    },
+        { value = "100",   label = "100+"   },
+        { value = "500",   label = "500+"   },
+        { value = "1000",  label = "1000+"  },
+        { value = "2000",  label = "2000+"  },
+        { value = "5000",  label = "5000+"  },
+        { value = "10000", label = "10000+" },
+      }
     },
     {
-      type  = "text",
-      key   = "maxPages",
-      label = "Max Pages",
+      type         = "select",
+      key          = "maxPages",
+      label        = "Max Pages",
       defaultValue = "20000",
+      options = {
+        { value = "500",   label = "≤ 500"   },
+        { value = "1000",  label = "≤ 1000"  },
+        { value = "2000",  label = "≤ 2000"  },
+        { value = "5000",  label = "≤ 5000"  },
+        { value = "10000", label = "≤ 10000" },
+        { value = "20000", label = "Any"     },
+      }
     },
     {
-      type  = "text",
-      key   = "minRating",
-      label = "Min Rating (0.0-5.0)",
+      type         = "select",
+      key          = "minRating",
+      label        = "Min Rating",
       defaultValue = "0.0",
+      options = {
+        { value = "0.0", label = "Any"  },
+        { value = "2.0", label = "2.0+" },
+        { value = "3.0", label = "3.0+" },
+        { value = "3.5", label = "3.5+" },
+        { value = "4.0", label = "4.0+" },
+        { value = "4.5", label = "4.5+" },
+      }
     },
     {
-      type  = "text",
-      key   = "maxRating",
-      label = "Max Rating (0.0-5.0)",
+      type         = "select",
+      key          = "maxRating",
+      label        = "Max Rating",
       defaultValue = "5.0",
+      options = {
+        { value = "2.0", label = "≤ 2.0" },
+        { value = "3.0", label = "≤ 3.0" },
+        { value = "3.5", label = "≤ 3.5" },
+        { value = "4.0", label = "≤ 4.0" },
+        { value = "4.5", label = "≤ 4.5" },
+        { value = "5.0", label = "Any"   },
+      }
     },
     {
       type  = "tristate",
@@ -351,8 +372,6 @@ end
 
 function getCatalogFiltered(index, filters)
   local page     = index + 1
-  local keyword  = filters["keyword"]  or ""
-  local author   = filters["author"]   or ""
   local orderBy  = filters["orderBy"]  or "relevance"
   local dir      = filters["dir"]      or "desc"
   local status   = filters["status"]   or "ALL"
@@ -371,8 +390,6 @@ function getCatalogFiltered(index, filters)
 
   local url = baseUrl .. "/fictions/search?page=" .. tostring(page)
 
-  if keyword ~= "" then url = url .. "&keyword=" .. url_encode(keyword) end
-  if author  ~= "" then url = url .. "&author="  .. url_encode(author)  end
   if orderBy ~= "" then url = url .. "&orderBy=" .. orderBy end
   if dir     ~= "" then url = url .. "&dir="     .. dir     end
   if status  ~= "ALL" then url = url .. "&status=" .. status end

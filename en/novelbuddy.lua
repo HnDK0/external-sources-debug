@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "novelbuddy"
 name     = "NovelBuddy"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://novelbuddy.io"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelbuddy.png"
@@ -211,12 +211,6 @@ function getFilterList()
       }
     },
     {
-      type  = "text",
-      key   = "keyword",
-      label = "Keywords",
-      defaultValue = "",
-    },
-    {
       type  = "checkbox",
       key   = "genre",
       label = "Genres (OR)",
@@ -281,15 +275,10 @@ function getCatalogFiltered(index, filters)
   local page    = index + 1
   local sort    = filters["sort"]    or "views"
   local status  = filters["status"]  or "all"
-  local keyword = filters["keyword"] or ""
   local genres  = filters["genre_included"] or {}
 
   local url = baseUrl .. "/search?sort=" .. url_encode(sort)
               .. "&status=" .. url_encode(status)
-
-  if keyword ~= "" then
-    url = url .. "&q=" .. url_encode(keyword)
-  end
 
   for _, v in ipairs(genres) do
     url = url .. "&genre[]=" .. url_encode(v)

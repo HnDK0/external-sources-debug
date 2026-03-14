@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ───────────────────────────────────────────────────────────────
 id       = "wtrlab"
 name     = "WTR-LAB"
-version  = "1.0.6"
+version  = "1.0.7"
 baseUrl  = "https://wtr-lab.com/"
 language = "MTL"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wtr-lab.png"
@@ -561,16 +561,35 @@ function getFilterList()
             }
         },
         {
-            type         = "text",
+            type         = "select",
             key          = "min_chapters",
             label        = "Minimum Chapters",
             defaultValue = "",
+            options = {
+                { value = "",     label = "Any"       },
+                { value = "1",    label = "1+"         },
+                { value = "10",   label = "10+"        },
+                { value = "50",   label = "50+"        },
+                { value = "100",  label = "100+"       },
+                { value = "200",  label = "200+"       },
+                { value = "500",  label = "500+"       },
+                { value = "1000", label = "1000+"      },
+            }
         },
         {
-            type         = "text",
+            type         = "select",
             key          = "min_rating",
-            label        = "Minimum Rating (0.0-5.0)",
+            label        = "Minimum Rating",
             defaultValue = "",
+            options = {
+                { value = "",    label = "Any"   },
+                { value = "1.0", label = "1.0+"  },
+                { value = "2.0", label = "2.0+"  },
+                { value = "3.0", label = "3.0+"  },
+                { value = "3.5", label = "3.5+"  },
+                { value = "4.0", label = "4.0+"  },
+                { value = "4.5", label = "4.5+"  },
+            }
         },
         -- ── Жанры (строковые slug-значения с сайта) ──────────────────────────
         {
@@ -771,19 +790,6 @@ function getFilterList()
                 { value = "368", label = "Interdimensional Travel"        },
             }
         },
-        -- Поле для ручного ввода ID тегов (через запятую) для редких тегов
-        {
-            type         = "text",
-            key          = "tags_include_manual",
-            label        = "Tags Include (IDs, comma-separated)",
-            defaultValue = "",
-        },
-        {
-            type         = "text",
-            key          = "tags_exclude_manual",
-            label        = "Tags Exclude (IDs, comma-separated)",
-            defaultValue = "",
-        },
     }
 end
 
@@ -805,22 +811,6 @@ function getCatalogFiltered(index, filters)
     local genres_exc = filters["genres_excluded"] or {}
     local tags_inc   = filters["tags_included"]   or {}
     local tags_exc   = filters["tags_excluded"]   or {}
-
-    -- Добавляем теги из текстовых полей (ручной ввод ID через запятую)
-    local tags_inc_manual = filters["tags_include_manual"] or ""
-    local tags_exc_manual = filters["tags_exclude_manual"] or ""
-    if tags_inc_manual ~= "" then
-        for id in tags_inc_manual:gmatch("[^,]+") do
-            local trimmed = string_trim(id)
-            if trimmed ~= "" then table.insert(tags_inc, trimmed) end
-        end
-    end
-    if tags_exc_manual ~= "" then
-        for id in tags_exc_manual:gmatch("[^,]+") do
-            local trimmed = string_trim(id)
-            if trimmed ~= "" then table.insert(tags_exc, trimmed) end
-        end
-    end
 
     -- WTR-LAB использует _next/data API — нужен buildId со страницы novel-finder
     local finderUrl = baseUrl .. "en/novel-finder"
@@ -858,10 +848,22 @@ function getCatalogFiltered(index, filters)
     if not r.success then return { items = {}, hasNext = false } end
 
     local data = json_parse(r.body)
-    if not data then return { items = {}, hasNext = false } end
+    if not data then
+        log_error("wtrlab getCatalogFiltered: json_parse failed, body=" .. r.body:sub(1, 300))
+        return { items = {}, hasNext = false }
+    end
 
-    local series = data.pageProps and data.pageProps.series
-    if not series then return { items = {}, hasNext = false } end
+    local pageProps = data.pageProps
+    if not pageProps then
+        log_error("wtrlab getCatalogFiltered: no pageProps, body=" .. r.body:sub(1, 300))
+        return { items = {}, hasNext = false }
+    end
+
+    local series = pageProps.series
+    if not series then
+        log_error("wtrlab getCatalogFiltered: no series, body=" .. r.body:sub(1, 300))
+        return { items = {}, hasNext = false }
+    end
 
     local seen = {}
     local items = {}
