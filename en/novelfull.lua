@@ -1,6 +1,6 @@
 ﻿id       = "novelfull"
 name     = "NovelFull"
-version  = "1.0.1"
+version  = "1.0.2"
 baseUrl  = "https://novelfull.net/"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelfull.png"
@@ -170,12 +170,9 @@ function getBookGenres(bookUrl)
   local r = http_get(bookUrl)
   if not r.success then return {} end
   local genres = {}
-  for _, li in ipairs(html_select(r.body, "ul.info-meta li")) do
-    local spanTitle = html_attr(li.html, "span", "title")
-    local spanText  = html_select_first(li.html, "span")
-    local isGenre = spanTitle == "Genre"
-                 or (spanText and string_trim(spanText.text) == "Genre")
-    if isGenre then
+  for _, li in ipairs(html_select(r.body, "ul.info.info-meta li, ul.info-meta li")) do
+    local h3 = html_select_first(li.html, "h3")
+    if h3 and string_trim(h3.text) == "Genre:" then
       for _, a in ipairs(html_select(li.html, "a")) do
         local g = string_trim(a.text)
         if g ~= "" then table.insert(genres, g) end
