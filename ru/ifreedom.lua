@@ -1,7 +1,7 @@
 -- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ifreedom"
 name     = "iFreedom"
-version  = "1.1.0"
+version  = "1.1.1"
 baseUrl  = "https://ifreedom.su/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ifreedom.png"
@@ -112,6 +112,33 @@ function getBookDescription(bookUrl)
   local el = html_select_first(r.body, "[data-name=\"Описание\"]")
   if el then return string_trim(el.text) end
   return nil
+end
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+
+  local genres = {}
+  -- ifreedom: div.book-info-list содержит svg.icon-tabler-tag, после него идут ссылки жанров
+  for _, block in ipairs(html_select(r.body, "div.book-info-list")) do
+    local icon = html_select_first(block.html, "svg.icon-tabler-tag")
+    if icon then
+      for _, a in ipairs(html_select(block.html, "a")) do
+        local label = string_trim(a.text)
+        if label ~= "" then table.insert(genres, label) end
+      end
+    end
+  end
+
+  -- ifreedom: альтернативный селектор через genreslist
+  if #genres == 0 then
+    for _, a in ipairs(html_select(r.body, "div.genreslist a")) do
+      local label = string_trim(a.text)
+      if label ~= "" then table.insert(genres, label) end
+    end
+  end
+
+  return genres
 end
 
 -- ── Список глав ───────────────────────────────────────────────────────────────

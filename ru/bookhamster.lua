@@ -1,7 +1,7 @@
 -- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "bookhamster"
 name     = "Bookhamster"
-version  = "1.1.0"
+version  = "1.1.1"
 baseUrl  = "https://bookhamster.ru/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/bookhamster.png"
@@ -112,6 +112,43 @@ function getBookDescription(bookUrl)
   local desc = html_attr(r.body, "meta[name=description]", "content")
   if desc ~= "" then return string_trim(desc) end
   return nil
+end
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+
+  local genres = {}
+  -- bookhamster: div.data-ranobe содержит span.dashicons-book (без book-alt),
+  -- значения жанров находятся в div.data-value внутри того же блока
+  for _, block in ipairs(html_select(r.body, "div.data-ranobe")) do
+    local icon = html_select_first(block.html, "span[class*=dashicons-book]:not([class*=book-alt])")
+    if icon then
+      local valueEl = html_select_first(block.html, "div.data-value")
+      if valueEl then
+        for _, a in ipairs(html_select(valueEl.html, "a")) do
+          local label = string_trim(a.text)
+          if label ~= "" then table.insert(genres, label) end
+        end
+        -- если жанры без ссылок — берём весь текст
+        if #genres == 0 then
+          local label = string_trim(valueEl.text)
+          if label ~= "" then table.insert(genres, label) end
+        end
+      end
+      break
+    end
+  end
+
+  -- bookhamster: альтернативный селектор через genreslist
+  if #genres == 0 then
+    for _, a in ipairs(html_select(r.body, "div.genreslist a")) do
+      local label = string_trim(a.text)
+      if label ~= "" then table.insert(genres, label) end
+    end
+  end
+
+  return genres
 end
 
 -- ── Список глав ───────────────────────────────────────────────────────────────
