@@ -35,8 +35,7 @@ end
 local function proxyCover(raw)
   if not raw or raw == "" then return "" end
   if not string_starts_with(raw, "http") then return raw end
-  local stripped = regex_replace(raw, "^https?://", "")
-  return "https://images.weserv.nl/?url=" .. url_encode(stripped) .. "&https=1"
+  return "https://images.weserv.nl/?url=" .. url_encode(raw)
 end
 
 local function applyStandardContentTransforms(text)
