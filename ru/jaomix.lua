@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "jaomix"
 name     = "Jaomix"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://jaomix.ru/"
 language = "ru"
 icon     = "https://jaomix.ru/wp-content/uploads/2026/02/logo-150x150.png"
@@ -206,4 +206,167 @@ function getChapterText(html, url)
   local el = html_select_first(cleaned, ".entry-content")
   if not el then return "" end
   return applyStandardContentTransforms(html_text(el.html))
+end
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "sortby",
+      label        = "Сортировка",
+      defaultValue = "topweek",
+      options = {
+        { value = "topweek",  label = "Топ недели"            },
+        { value = "alphabet", label = "По алфавиту"           },
+        { value = "upd",      label = "По дате обновления"    },
+        { value = "new",      label = "По дате создания"      },
+        { value = "count",    label = "По просмотрам"         },
+        { value = "topyear",  label = "Топ года"              },
+        { value = "topday",   label = "Топ дня"               },
+        { value = "alltime",  label = "Топ за все время"      },
+        { value = "topmonth", label = "Топ месяца"            },
+      }
+    },
+    {
+      type         = "select",
+      key          = "sortdaycreate",
+      label        = "Дата добавления",
+      defaultValue = "1",
+      options = {
+        { value = "1",    label = "Дата добавления"      },
+        { value = "30",   label = "Послед. 30 дней"      },
+        { value = "3060", label = "От 30 до 60 дней"     },
+        { value = "6090", label = "От 60 до 90 дней"     },
+        { value = "9012", label = "От 90 до 120 дней"    },
+        { value = "1218", label = "От 120 до 180 дней"   },
+        { value = "1836", label = "От 180 до 365 дней"   },
+        { value = "365",  label = "От 365 дней"          },
+      }
+    },
+    {
+      type         = "select",
+      key          = "sortcountchapt",
+      label        = "Количество глав",
+      defaultValue = "1",
+      options = {
+        { value = "1",    label = "Любое кол-во глав"    },
+        { value = "500",  label = "До 500"               },
+        { value = "510",  label = "От 500 до 1000"       },
+        { value = "1020", label = "От 1000 до 2000"      },
+        { value = "2030", label = "От 2000 до 3000"      },
+        { value = "3040", label = "От 3000 до 4000"      },
+        { value = "400",  label = "От 4000"              },
+      }
+    },
+    {
+      type  = "tristate",
+      key   = "genre",
+      label = "Жанры",
+      options = {
+        { value = "Боевые Искусства",    label = "Боевые Искусства"    },
+        { value = "Виртуальный Мир",     label = "Виртуальный Мир"     },
+        { value = "Гарем",               label = "Гарем"               },
+        { value = "Детектив",            label = "Детектив"            },
+        { value = "Драма",               label = "Драма"               },
+        { value = "Игра",                label = "Игра"                },
+        { value = "Истории из жизни",    label = "Истории из жизни"    },
+        { value = "Исторический",        label = "Исторический"        },
+        { value = "История",             label = "История"             },
+        { value = "Исэкай",              label = "Исэкай"              },
+        { value = "Комедия",             label = "Комедия"             },
+        { value = "Меха",                label = "Меха"                },
+        { value = "Мистика",             label = "Мистика"             },
+        { value = "Научная Фантастика",  label = "Научная Фантастика"  },
+        { value = "Повседневность",      label = "Повседневность"      },
+        { value = "Постапокалипсис",     label = "Постапокалипсис"     },
+        { value = "Приключения",         label = "Приключения"         },
+        { value = "Психология",          label = "Психология"          },
+        { value = "Романтика",           label = "Романтика"           },
+        { value = "Сверхъестественное",  label = "Сверхъестественное"  },
+        { value = "Сёнэн",               label = "Сёнэн"               },
+        { value = "Спорт",               label = "Спорт"               },
+        { value = "Сэйнэн",              label = "Сэйнэн"              },
+        { value = "Сюаньхуа",            label = "Сюаньхуа"            },
+        { value = "Трагедия",            label = "Трагедия"            },
+        { value = "Триллер",             label = "Триллер"             },
+        { value = "Фантастика",          label = "Фантастика"          },
+        { value = "Фэнтези",             label = "Фэнтези"             },
+        { value = "Хоррор",              label = "Хоррор"              },
+        { value = "Школьная жизнь",      label = "Школьная жизнь"      },
+        { value = "Шоунен",              label = "Шоунен"              },
+        { value = "Экшн",                label = "Экшн"                },
+        { value = "Этти",                label = "Этти"                },
+        { value = "Adult",               label = "Adult"               },
+        { value = "Ecchi",               label = "Ecchi"               },
+        { value = "Josei",               label = "Josei"               },
+        { value = "Mature",              label = "Mature"              },
+        { value = "Shoujo",              label = "Shoujo"              },
+        { value = "Wuxia",               label = "Wuxia"               },
+        { value = "Xianxia",             label = "Xianxia"             },
+        { value = "Xuanhuan",            label = "Xuanhuan"            },
+      }
+    },
+    {
+      type  = "checkbox",
+      key   = "lang",
+      label = "Язык",
+      options = {
+        { value = "Английский", label = "Английский" },
+        { value = "Китайский",  label = "Китайский"  },
+        { value = "Корейский",  label = "Корейский"  },
+        { value = "Японский",   label = "Японский"   },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page           = index + 1
+  local sortby         = filters["sortby"]         or "topweek"
+  local sortdaycreate  = filters["sortdaycreate"]  or "1"
+  local sortcountchapt = filters["sortcountchapt"] or "1"
+  local genre_inc      = filters["genre_included"] or {}
+  local genre_exc      = filters["genre_excluded"] or {}
+  local lang_inc       = filters["lang_included"]  or {}
+
+  local url = baseUrl .. "?searchrn"
+
+  for i, v in ipairs(lang_inc) do
+    url = url .. "&lang[" .. tostring(i - 1) .. "]=" .. url_encode(v)
+  end
+
+  for i, v in ipairs(genre_inc) do
+    url = url .. "&genre[" .. tostring(i - 1) .. "]=" .. url_encode(v)
+  end
+
+  for i, v in ipairs(genre_exc) do
+    url = url .. "&delgenre[" .. tostring(i - 1) .. "]=del%20" .. url_encode(v)
+  end
+
+  url = url .. "&sortcountchapt=" .. sortcountchapt
+              .. "&sortdaycreate="  .. sortdaycreate
+              .. "&sortby="         .. sortby
+              .. "&gpage="          .. tostring(page)
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, card in ipairs(html_select(r.body, "div.block-home > div.one")) do
+    local titleEl = html_select_first(card.html, "div.title-home")
+    local bookUrl = absUrl(html_attr(card.html, "div.img-home > a", "href"))
+    local cover   = transformCover(absUrl(html_attr(card.html, "div.img-home > a > img", "src")))
+    if titleEl and bookUrl ~= "" then
+      table.insert(items, {
+        title = string_clean(titleEl.text),
+        url   = bookUrl,
+        cover = cover
+      })
+    end
+  end
+
+  return { items = items, hasNext = #items > 0 }
 end

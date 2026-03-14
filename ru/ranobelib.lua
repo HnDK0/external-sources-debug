@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ranobelib"
 name     = "RanobeLib"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://ranobelib.me/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ranobelib.png"
@@ -371,4 +371,275 @@ function getChapterText(html, chapterUrl)
     return applyStandardContentTransforms(html_text(resultHtml))
   end
   return applyStandardContentTransforms(html_text(resultHtml))
+end
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "sort_by",
+      label        = "Сортировка",
+      defaultValue = "rating_score",
+      options = {
+        { value = "rate_avg",        label = "По рейтингу"         },
+        { value = "rating_score",    label = "По популярности"     },
+        { value = "views",           label = "По просмотрам"       },
+        { value = "chap_count",      label = "Количеству глав"     },
+        { value = "last_chapter_at", label = "Дате обновления"     },
+        { value = "created_at",      label = "Дате добавления"     },
+        { value = "name",            label = "По названию (A-Z)"   },
+        { value = "rus_name",        label = "По названию (А-Я)"   },
+      }
+    },
+    {
+      type         = "select",
+      key          = "sort_type",
+      label        = "Порядок",
+      defaultValue = "desc",
+      options = {
+        { value = "desc", label = "По убыванию"   },
+        { value = "asc",  label = "По возрастанию" },
+      }
+    },
+    {
+      type  = "switch",
+      key   = "require_chapters",
+      label = "Только проекты с главами",
+      defaultValue = true,
+    },
+    {
+      type  = "checkbox",
+      key   = "types",
+      label = "Тип",
+      options = {
+        { value = "10", label = "Япония"     },
+        { value = "11", label = "Корея"      },
+        { value = "12", label = "Китай"      },
+        { value = "13", label = "Английский" },
+        { value = "14", label = "Авторский"  },
+        { value = "15", label = "Фанфик"     },
+      }
+    },
+    {
+      type  = "checkbox",
+      key   = "scanlateStatus",
+      label = "Статус перевода",
+      options = {
+        { value = "1", label = "Продолжается" },
+        { value = "2", label = "Завершен"     },
+        { value = "3", label = "Заморожен"    },
+        { value = "4", label = "Заброшен"     },
+      }
+    },
+    {
+      type  = "checkbox",
+      key   = "manga_status",
+      label = "Статус тайтла",
+      options = {
+        { value = "1", label = "Онгоинг"            },
+        { value = "2", label = "Завершён"            },
+        { value = "3", label = "Анонс"              },
+        { value = "4", label = "Приостановлен"      },
+        { value = "5", label = "Выпуск прекращён"   },
+      }
+    },
+    {
+      type  = "tristate",
+      key   = "genres",
+      label = "Жанры",
+      options = {
+        { value = "32",  label = "Арт"                    },
+        { value = "91",  label = "Безумие"                },
+        { value = "34",  label = "Боевик"                 },
+        { value = "35",  label = "Боевые искусства"       },
+        { value = "36",  label = "Вампиры"                },
+        { value = "89",  label = "Военное"                },
+        { value = "37",  label = "Гарем"                  },
+        { value = "38",  label = "Гендерная интрига"      },
+        { value = "39",  label = "Героическое фэнтези"    },
+        { value = "81",  label = "Демоны"                 },
+        { value = "40",  label = "Детектив"               },
+        { value = "88",  label = "Детское"                },
+        { value = "41",  label = "Дзёсэй"                 },
+        { value = "43",  label = "Драма"                  },
+        { value = "44",  label = "Игра"                   },
+        { value = "79",  label = "Исекай"                 },
+        { value = "45",  label = "История"                },
+        { value = "46",  label = "Киберпанк"              },
+        { value = "76",  label = "Кодомо"                 },
+        { value = "47",  label = "Комедия"                },
+        { value = "83",  label = "Космос"                 },
+        { value = "85",  label = "Магия"                  },
+        { value = "48",  label = "Махо-сёдзё"             },
+        { value = "90",  label = "Машины"                 },
+        { value = "49",  label = "Меха"                   },
+        { value = "50",  label = "Мистика"                },
+        { value = "80",  label = "Музыка"                 },
+        { value = "51",  label = "Научная фантастика"     },
+        { value = "77",  label = "Омегаверс"              },
+        { value = "86",  label = "Пародия"                },
+        { value = "52",  label = "Повседневность"         },
+        { value = "82",  label = "Полиция"                },
+        { value = "53",  label = "Постапокалиптика"       },
+        { value = "54",  label = "Приключения"            },
+        { value = "55",  label = "Психология"             },
+        { value = "56",  label = "Романтика"              },
+        { value = "57",  label = "Самурайский боевик"     },
+        { value = "58",  label = "Сверхъестественное"     },
+        { value = "59",  label = "Сёдзё"                  },
+        { value = "60",  label = "Сёдзё-ай"               },
+        { value = "61",  label = "Сёнэн"                  },
+        { value = "62",  label = "Сёнэн-ай"               },
+        { value = "63",  label = "Спорт"                  },
+        { value = "87",  label = "Супер сила"             },
+        { value = "64",  label = "Сэйнэн"                 },
+        { value = "65",  label = "Трагедия"               },
+        { value = "66",  label = "Триллер"                },
+        { value = "67",  label = "Ужасы"                  },
+        { value = "68",  label = "Фантастика"             },
+        { value = "69",  label = "Фэнтези"                },
+        { value = "84",  label = "Хентай"                 },
+        { value = "70",  label = "Школа"                  },
+        { value = "71",  label = "Эротика"                },
+        { value = "72",  label = "Этти"                   },
+        { value = "73",  label = "Юри"                    },
+        { value = "74",  label = "Яой"                    },
+      }
+    },
+    {
+      type  = "tristate",
+      key   = "tags",
+      label = "Теги",
+      options = {
+        { value = "328", label = "Авантюристы"                  },
+        { value = "175", label = "Антигерой"                    },
+        { value = "333", label = "Бессмертные"                  },
+        { value = "218", label = "Боги"                         },
+        { value = "309", label = "Борьба за власть"             },
+        { value = "360", label = "Брат и сестра"                },
+        { value = "339", label = "Ведьма"                       },
+        { value = "204", label = "Видеоигры"                    },
+        { value = "214", label = "Виртуальная реальность"       },
+        { value = "349", label = "Владыка демонов"              },
+        { value = "198", label = "Военные"                      },
+        { value = "310", label = "Воспоминания из другого мира" },
+        { value = "212", label = "Выживание"                    },
+        { value = "294", label = "ГГ женщина"                   },
+        { value = "292", label = "ГГ имба"                      },
+        { value = "295", label = "ГГ мужчина"                   },
+        { value = "325", label = "ГГ не ояш"                    },
+        { value = "331", label = "ГГ не человек"                },
+        { value = "326", label = "ГГ ояш"                       },
+        { value = "324", label = "Главный герой бог"            },
+        { value = "298", label = "Глупый ГГ"                    },
+        { value = "171", label = "Горничные"                    },
+        { value = "306", label = "Гуро"                         },
+        { value = "197", label = "Гяру"                         },
+        { value = "157", label = "Демоны"                       },
+        { value = "313", label = "Драконы"                      },
+        { value = "317", label = "Древний мир"                  },
+        { value = "163", label = "Зверолюди"                    },
+        { value = "155", label = "Зомби"                        },
+        { value = "323", label = "Исторические фигуры"          },
+        { value = "158", label = "Кулинария"                    },
+        { value = "161", label = "Культивация"                  },
+        { value = "344", label = "ЛГБТ"                         },
+        { value = "319", label = "ЛитРПГ"                       },
+        { value = "206", label = "Лоли"                         },
+        { value = "170", label = "Магия"                        },
+        { value = "345", label = "Машинный перевод"             },
+        { value = "159", label = "Медицина"                     },
+        { value = "330", label = "Межгалактическая война"       },
+        { value = "207", label = "Монстр Девушки"               },
+        { value = "208", label = "Монстры"                      },
+        { value = "316", label = "Мрачный мир"                  },
+        { value = "209", label = "Музыка"                       },
+        { value = "199", label = "Ниндзя"                       },
+        { value = "210", label = "Обратный Гарем"               },
+        { value = "200", label = "Офисные Работники"            },
+        { value = "341", label = "Пираты"                       },
+        { value = "314", label = "Подземелья"                   },
+        { value = "311", label = "Политика"                     },
+        { value = "201", label = "Полиция"                      },
+        { value = "205", label = "Преступники / Криминал"       },
+        { value = "196", label = "Призраки / Духи"              },
+        { value = "329", label = "Призыватели"                  },
+        { value = "321", label = "Прыжки между мирами"          },
+        { value = "318", label = "Путешествие в другой мир"     },
+        { value = "213", label = "Путешествие во времени"       },
+        { value = "355", label = "Рабы"                         },
+        { value = "312", label = "Ранги силы"                   },
+        { value = "154", label = "Реинкарнация"                 },
+        { value = "202", label = "Самураи"                      },
+        { value = "315", label = "Скрытие личности"             },
+        { value = "174", label = "Средневековье"                },
+        { value = "203", label = "Традиционные игры"            },
+        { value = "303", label = "Умный ГГ"                     },
+        { value = "332", label = "Характерный рост"             },
+        { value = "167", label = "Хикикомори"                   },
+        { value = "322", label = "Эволюция"                     },
+        { value = "327", label = "Элементы РПГ"                 },
+        { value = "217", label = "Эльфы"                        },
+        { value = "165", label = "Якудза"                       },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page      = index + 1
+  local sort_by   = filters["sort_by"]   or "rating_score"
+  local sort_type = filters["sort_type"] or "desc"
+  local req_ch    = filters["require_chapters"]  -- switch: "true"/"false"/nil
+
+  local types_inc        = filters["types_included"]          or {}
+  local scanlate_inc     = filters["scanlateStatus_included"] or {}
+  local manga_status_inc = filters["manga_status_included"]   or {}
+  local genres_inc       = filters["genres_included"]         or {}
+  local genres_exc       = filters["genres_excluded"]         or {}
+  local tags_inc         = filters["tags_included"]           or {}
+  local tags_exc         = filters["tags_excluded"]           or {}
+
+  local url = apiBase .. "?site_id[0]=" .. siteId
+              .. "&page="      .. tostring(page)
+              .. "&sort_by="   .. sort_by
+              .. "&sort_type=" .. sort_type
+
+  if req_ch ~= "false" then
+    url = url .. "&chapters[min]=1"
+  end
+
+  for _, v in ipairs(types_inc)        do url = url .. "&types[]="          .. v end
+  for _, v in ipairs(scanlate_inc)     do url = url .. "&scanlateStatus[]=" .. v end
+  for _, v in ipairs(manga_status_inc) do url = url .. "&manga_status[]="   .. v end
+  for _, v in ipairs(genres_inc)       do url = url .. "&genres[]="         .. v end
+  for _, v in ipairs(genres_exc)       do url = url .. "&genres_exclude[]=" .. v end
+  for _, v in ipairs(tags_inc)         do url = url .. "&tags[]="           .. v end
+  for _, v in ipairs(tags_exc)         do url = url .. "&tags_exclude[]="   .. v end
+
+  local r = http_get(url, { headers = apiHeaders })
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local parsed = json_parse(r.body)
+  if not parsed or not parsed.data then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, novel in ipairs(parsed.data) do
+    local title = pickTitle(novel)
+    local slug  = novel.slug_url or novel.slug or ""
+    local cover = getPath(novel, "cover.default") or ""
+    if title ~= "" and slug ~= "" then
+      table.insert(items, {
+        title = string_clean(title),
+        url   = baseUrl .. "ru/" .. slug,
+        cover = proxyCover(cover)
+      })
+    end
+  end
+
+  local hasNext = getPath(parsed, "meta.has_next_page")
+  return { items = items, hasNext = hasNext == true or #items > 0 }
 end
