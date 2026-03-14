@@ -1,7 +1,7 @@
 -- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "ifreedom"
 name     = "iFreedom"
-version  = "1.1.1"
+version  = "1.1.2"
 baseUrl  = "https://ifreedom.su/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/ifreedom.png"
@@ -27,15 +27,7 @@ local function applyStandardContentTransforms(text)
   return text
 end
 
--- Строит повторяющиеся параметры вида &key[]=v1&key[]=v2
-local function buildArrayParam(key, values)
-  if not values or #values == 0 then return "" end
-  local parts = {}
-  for _, v in ipairs(values) do
-    parts[#parts + 1] = "&" .. key .. "%5B%5D=" .. url_encode(v)
-  end
-  return table.concat(parts)
-end
+
 
 -- ── Каталог ───────────────────────────────────────────────────────────────────
 
@@ -278,16 +270,18 @@ end
 -- ── Каталог с фильтрами ───────────────────────────────────────────────────────
 
 function getCatalogFiltered(index, filters)
+  local page   = index + 1
   local sort   = filters["sort"] or "По рейтингу"
   local status = filters["status_included"] or {}
   local lang   = filters["lang_included"] or {}
   local genre  = filters["genre_included"] or {}
 
   local url = baseUrl .. "vse-knigi/?sort=" .. url_encode(sort)
-              .. buildArrayParam("status", status)
-              .. buildArrayParam("lang", lang)
-              .. buildArrayParam("genre", genre)
-              .. "&bpage=" .. tostring(index + 1)
+              .. "&bpage=" .. tostring(page)
+
+  for _, v in ipairs(status) do url = url .. "&status[]=" .. url_encode(v) end
+  for _, v in ipairs(lang)   do url = url .. "&lang[]="   .. url_encode(v) end
+  for _, v in ipairs(genre)  do url = url .. "&genre[]="  .. url_encode(v) end
 
   local r = http_get(url)
   if not r.success then return { items = {}, hasNext = false } end
