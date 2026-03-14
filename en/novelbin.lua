@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id        = "NovelBin"
 name      = "Novel Bin"
-version   = "1.1.1"
+version   = "1.1.2"
 baseUrl   = "https://novelbin.com/"
 language  = "en"
 icon      = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelbin.png"
@@ -167,4 +167,138 @@ function getChapterText(html)
   local el = html_select_first(cleaned, "#chr-content")
   if not el then return "" end
   return applyStandardContentTransforms(html_text(el.html))
+end
+
+-- ── Жанры книги ───────────────────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+  local genres = {}
+  for _, li in ipairs(html_select(r.body, "ul.info-meta li")) do
+    local spanTitle = html_attr(li.html, "span", "title")
+    local spanText  = html_select_first(li.html, "span")
+    local isGenre = spanTitle == "Genre"
+                 or (spanText and string_trim(spanText.text) == "Genre")
+    if isGenre then
+      for _, a in ipairs(html_select(li.html, "a")) do
+        local g = string_trim(a.text)
+        if g ~= "" then table.insert(genres, g) end
+      end
+      break
+    end
+  end
+  return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "type",
+      label        = "Novel Listing",
+      defaultValue = "sort/top-view-novel",
+      options = {
+        { value = "sort/top-hot-novel",  label = "Hot Novel"      },
+        { value = "sort/completed",      label = "Completed Novel" },
+        { value = "sort/top-view-novel", label = "Most Popular"    },
+      }
+    },
+    {
+      type         = "select",
+      key          = "genres",
+      label        = "Genre (cancels Novel Listing)",
+      defaultValue = "",
+      options = {
+        { value = "",                        label = "All"              },
+        { value = "genre/action",            label = "Action"           },
+        { value = "genre/adventure",         label = "Adventure"        },
+        { value = "genre/anime-&-comics",    label = "Anime & Comics"   },
+        { value = "genre/comedy",            label = "Comedy"           },
+        { value = "genre/drama",             label = "Drama"            },
+        { value = "genre/eastern",           label = "Eastern"          },
+        { value = "genre/fan-fiction",       label = "Fan-fiction"      },
+        { value = "genre/fantasy",           label = "Fantasy"          },
+        { value = "genre/game",              label = "Game"             },
+        { value = "genre/gender-bender",     label = "Gender Bender"    },
+        { value = "genre/harem",             label = "Harem"            },
+        { value = "genre/historical",        label = "Historical"       },
+        { value = "genre/horror",            label = "Horror"           },
+        { value = "genre/isekai",            label = "Isekai"           },
+        { value = "genre/josei",             label = "Josei"            },
+        { value = "genre/litrpg",            label = "LitRPG"           },
+        { value = "genre/magic",             label = "Magic"            },
+        { value = "genre/martial-arts",      label = "Martial Arts"     },
+        { value = "genre/mature",            label = "Mature"           },
+        { value = "genre/mecha",             label = "Mecha"            },
+        { value = "genre/military",          label = "Military"         },
+        { value = "genre/modern-life",       label = "Modern Life"      },
+        { value = "genre/mystery",           label = "Mystery"          },
+        { value = "genre/psychological",     label = "Psychological"    },
+        { value = "genre/reincarnation",     label = "Reincarnation"    },
+        { value = "genre/romance",           label = "Romance"          },
+        { value = "genre/school-life",       label = "School Life"      },
+        { value = "genre/sci-fi",            label = "Sci-fi"           },
+        { value = "genre/seinen",            label = "Seinen"           },
+        { value = "genre/shoujo",            label = "Shoujo"           },
+        { value = "genre/shounen",           label = "Shounen"          },
+        { value = "genre/slice-of-life",     label = "Slice of Life"    },
+        { value = "genre/smut",              label = "Smut"             },
+        { value = "genre/sports",            label = "Sports"           },
+        { value = "genre/supernatural",      label = "Supernatural"     },
+        { value = "genre/system",            label = "System"           },
+        { value = "genre/thriller",          label = "Thriller"         },
+        { value = "genre/tragedy",           label = "Tragedy"          },
+        { value = "genre/urban-life",        label = "Urban Life"       },
+        { value = "genre/war",               label = "War"              },
+        { value = "genre/wuxia",             label = "Wuxia"            },
+        { value = "genre/xianxia",           label = "Xianxia"          },
+        { value = "genre/xuanhuan",          label = "Xuanhuan"         },
+        { value = "genre/yaoi",              label = "Yaoi"             },
+        { value = "genre/yuri",              label = "Yuri"             },
+      }
+    },
+    {
+      type         = "switch",
+      key          = "complete",
+      label        = "Show Completed Novels Only",
+      defaultValue = "false",
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page     = index + 1
+  local genres   = filters["genres"]   or ""
+  local ftype    = filters["type"]     or "sort/top-view-novel"
+  local complete = filters["complete"] or "false"
+
+  -- Жанр имеет приоритет над типом листинга
+  local basePath = genres ~= "" and genres or ftype
+
+  -- Фильтр completed
+  if complete == "true" and genres ~= "" then
+    basePath = basePath .. "?status=2"
+  elseif complete == "true" then
+    basePath = "sort/completed"
+  end
+
+  local url = baseUrl .. basePath
+  if page > 1 then
+    if basePath:find("?") then
+      url = url .. "&page=" .. page
+    else
+      url = url .. "?page=" .. page
+    end
+  end
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = parseCatalogItems(r.body, true)
+  return { items = items, hasNext = #items > 0 }
 end

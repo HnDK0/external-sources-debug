@@ -1,6 +1,6 @@
 ﻿id       = "novelfull"
 name     = "NovelFull"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://novelfull.net/"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelfull.png"
@@ -162,4 +162,115 @@ function getChapterText(html, url)
     local el = html_select_first(cleaned, "#chapter-content")
     if not el then return "" end
     return applyStandardContentTransforms(html_text(el.html))
+end
+
+-- ── Жанры книги ───────────────────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+  local genres = {}
+  for _, li in ipairs(html_select(r.body, "ul.info-meta li")) do
+    local spanTitle = html_attr(li.html, "span", "title")
+    local spanText  = html_select_first(li.html, "span")
+    local isGenre = spanTitle == "Genre"
+                 or (spanText and string_trim(spanText.text) == "Genre")
+    if isGenre then
+      for _, a in ipairs(html_select(li.html, "a")) do
+        local g = string_trim(a.text)
+        if g ~= "" then table.insert(genres, g) end
+      end
+      break
+    end
+  end
+  return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "type",
+      label        = "Novel Listing",
+      defaultValue = "most-popular",
+      options = {
+        { value = "hot-novel",        label = "Hot Novel"       },
+        { value = "completed-novel",  label = "Completed Novel" },
+        { value = "most-popular",     label = "Most Popular"    },
+      }
+    },
+    {
+      type         = "select",
+      key          = "genres",
+      label        = "Genre (cancels Novel Listing)",
+      defaultValue = "",
+      options = {
+        { value = "",                    label = "All"            },
+        { value = "genre/Action",        label = "Action"         },
+        { value = "genre/Adventure",     label = "Adventure"      },
+        { value = "genre/Adult",         label = "Adult"          },
+        { value = "genre/Comedy",        label = "Comedy"         },
+        { value = "genre/Drama",         label = "Drama"          },
+        { value = "genre/Ecchi",         label = "Ecchi"          },
+        { value = "genre/Fantasy",       label = "Fantasy"        },
+        { value = "genre/Gender+Bender", label = "Gender Bender"  },
+        { value = "genre/Harem",         label = "Harem"          },
+        { value = "genre/Historical",    label = "Historical"     },
+        { value = "genre/Horror",        label = "Horror"         },
+        { value = "genre/Josei",         label = "Josei"          },
+        { value = "genre/Martial+Arts",  label = "Martial Arts"   },
+        { value = "genre/Mature",        label = "Mature"         },
+        { value = "genre/Mecha",         label = "Mecha"          },
+        { value = "genre/Mystery",       label = "Mystery"        },
+        { value = "genre/Psychological", label = "Psychological"  },
+        { value = "genre/Romance",       label = "Romance"        },
+        { value = "genre/School+Life",   label = "School Life"    },
+        { value = "genre/Sci-fi",        label = "Sci-fi"         },
+        { value = "genre/Seinen",        label = "Seinen"         },
+        { value = "genre/Shoujo",        label = "Shoujo"         },
+        { value = "genre/Shounen",       label = "Shounen"        },
+        { value = "genre/Shounen+Ai",    label = "Shounen Ai"     },
+        { value = "genre/Slice+of+Life", label = "Slice of Life"  },
+        { value = "genre/Smut",          label = "Smut"           },
+        { value = "genre/Sports",        label = "Sports"         },
+        { value = "genre/Supernatural",  label = "Supernatural"   },
+        { value = "genre/Tragedy",       label = "Tragedy"        },
+        { value = "genre/Wuxia",         label = "Wuxia"          },
+        { value = "genre/Xianxia",       label = "Xianxia"        },
+        { value = "genre/Xuanhuan",      label = "Xuanhuan"       },
+        { value = "genre/Yaoi",          label = "Yaoi"           },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page   = index + 1
+  local genres = filters["genres"] or ""
+  local ftype  = filters["type"]   or "most-popular"
+
+  local basePath = genres ~= "" and genres or ftype
+  local url = baseUrl .. basePath
+  if page > 1 then url = url .. "?page=" .. page end
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, card in ipairs(html_select(r.body, ".col-truyen-main .row")) do
+    local titleEl = html_select_first(card.html, "div.col-xs-7 > div > h3 > a")
+    if titleEl then
+      local bookUrl = absUrl(titleEl.href)
+      table.insert(items, {
+        title = string_clean(titleEl.text),
+        url   = bookUrl,
+        cover = transformCatalogCover(bookUrl)
+      })
+    end
+  end
+  return { items = items, hasNext = #items > 0 }
 end
