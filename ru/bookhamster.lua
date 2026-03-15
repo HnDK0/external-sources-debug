@@ -1,7 +1,7 @@
 -- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "bookhamster"
 name     = "Bookhamster"
-version  = "1.1.0"
+version  = "1.1.2"
 baseUrl  = "https://bookhamster.ru/"
 language = "ru"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/bookhamster.png"

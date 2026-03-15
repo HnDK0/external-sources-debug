@@ -1,6 +1,6 @@
 ﻿id       = "novelfull"
 name     = "NovelFull"
-version  = "1.0.0"
+version  = "1.0.3"
 baseUrl  = "https://novelfull.net/"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/novelfull.png"
