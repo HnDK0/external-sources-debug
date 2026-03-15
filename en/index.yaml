@@ -75,7 +75,7 @@ sources:
     language: "en"
   - id: "wuxia_world_site"
     name: "WuxiaWorld.site"
-    version: "1.0.0"
+    version: "1.0.1"
     url: "https://raw.githubusercontent.com/HnDK0/external-sources-debug/main/en/wuxiaworld_site.lua"
     icon: "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wuxiaworld.site.png"
     language: "en"
