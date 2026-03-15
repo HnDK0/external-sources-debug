@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "wuxia_world_site"
 name     = "WuxiaWorld.site"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://wuxiaworld.site/"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/wuxiaworld.site.png"
@@ -159,4 +159,164 @@ function getChapterText(html, url)
   local el = html_select_first(cleaned, ".reading-content")
   if not el then return "" end
   return applyStandardContentTransforms(html_text(el.html))
+end
+
+-- ── Жанры книги ───────────────────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+  local genres = {}
+  for _, a in ipairs(html_select(r.body, ".genres-content a")) do
+    local g = string_trim(a.text)
+    if g ~= "" then table.insert(genres, g) end
+  end
+  return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "m_orderby",
+      label        = "Order by",
+      defaultValue = "trending",
+      options = {
+        { value = "trending",   label = "Trending"    },
+        { value = "latest",     label = "Latest"      },
+        { value = "alphabet",   label = "A-Z"         },
+        { value = "rating",     label = "Rating"      },
+        { value = "views",      label = "Most Views"  },
+        { value = "new-manga",  label = "New"         },
+      }
+    },
+    {
+      type         = "select",
+      key          = "status",
+      label        = "Status",
+      defaultValue = "",
+      options = {
+        { value = "",         label = "All"       },
+        { value = "on-going", label = "Ongoing"   },
+        { value = "end",      label = "Completed" },
+        { value = "canceled", label = "Canceled"  },
+        { value = "on-hold",  label = "On Hold"   },
+      }
+    },
+    {
+      type         = "select",
+      key          = "adult",
+      label        = "Adult Content",
+      defaultValue = "",
+      options = {
+        { value = "",  label = "All"             },
+        { value = "0", label = "No Adult"        },
+        { value = "1", label = "Only Adult"      },
+      }
+    },
+    {
+      type         = "select",
+      key          = "op",
+      label        = "Genre Condition",
+      defaultValue = "",
+      options = {
+        { value = "",  label = "OR"  },
+        { value = "1", label = "AND" },
+      }
+    },
+    {
+      type        = "checkbox",
+      key         = "genre",
+      label       = "Genre",
+      multiselect = false,
+      options = {
+        { value = "action",            label = "Action"          },
+        { value = "adult",             label = "Adult"           },
+        { value = "adventure",         label = "Adventure"       },
+        { value = "comedy",            label = "Comedy"          },
+        { value = "drama-genre",       label = "Drama"           },
+        { value = "ecchi",             label = "Ecchi"           },
+        { value = "fantasy",           label = "Fantasy"         },
+        { value = "gender-bender",     label = "Gender Bender"   },
+        { value = "harems-novel",      label = "Harem"           },
+        { value = "historical",        label = "Historical"      },
+        { value = "horror",            label = "Horror"          },
+        { value = "isekai",            label = "Isekai"          },
+        { value = "josei",             label = "Josei"           },
+        { value = "lgbt",              label = "LGBT+"           },
+        { value = "magical-realism",   label = "Magical Realism" },
+        { value = "manhwa",            label = "Manhwa"          },
+        { value = "martial-arts-genre",label = "Martial Arts"    },
+        { value = "mature",            label = "Mature"          },
+        { value = "mecha",             label = "Mecha"           },
+        { value = "mystery",           label = "Mystery"         },
+        { value = "psychological",     label = "Psychological"   },
+        { value = "reincarnation",     label = "Reincarnation"   },
+        { value = "romance",           label = "Romance"         },
+        { value = "school-life",       label = "School Life"     },
+        { value = "sci-fi",            label = "Sci-fi"          },
+        { value = "seinen",            label = "Seinen"          },
+        { value = "shoujo-genre",      label = "Shoujo"          },
+        { value = "shoujo-ai",         label = "Shoujo Ai"       },
+        { value = "shounen",           label = "Shounen"         },
+        { value = "shounen-ai",        label = "Shounen Ai"      },
+        { value = "slice-of-life",     label = "Slice of Life"   },
+        { value = "smut",              label = "Smut"            },
+        { value = "sports",            label = "Sports"          },
+        { value = "supernatural",      label = "Supernatural"    },
+        { value = "teen",              label = "Teen"            },
+        { value = "thriller",          label = "Thriller"        },
+        { value = "tragedy",           label = "Tragedy"         },
+        { value = "video-games",       label = "Video Games"     },
+        { value = "wuxia",             label = "Wuxia"           },
+        { value = "xianxia",           label = "Xianxia"         },
+        { value = "xuanhuan",          label = "Xuanhuan"        },
+        { value = "yaoi",              label = "Yaoi"            },
+        { value = "yuri",              label = "Yuri"            },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page    = index + 1
+  local orderby = filters["m_orderby"] or "trending"
+  local status  = filters["status"]    or ""
+  local adult   = filters["adult"]     or ""
+  local op      = filters["op"]        or ""
+  local genres  = filters["genre_included"] or {}
+  local genre   = genres[1] or ""
+
+  local url = baseUrl .. "?s=&post_type=wp-manga"
+  url = url .. "&m_orderby=" .. url_encode(orderby)
+  if genre ~= "" then
+    url = url .. "&genre%5B%5D=" .. url_encode(genre)
+  end
+  if op ~= "" then url = url .. "&op=" .. url_encode(op) end
+  if adult ~= "" then url = url .. "&adult=" .. url_encode(adult) end
+  if status ~= "" then url = url .. "&status%5B%5D=" .. url_encode(status) end
+  if page > 1 then url = url .. "&paged=" .. tostring(page) end
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, card in ipairs(html_select(r.body, ".c-tabs-item__content")) do
+    local titleEl = html_select_first(card.html, ".post-title h3 a")
+    if titleEl then
+      local bookUrl = absUrl(titleEl.href)
+      local cover   = html_attr(card.html, ".tab-thumb img", "data-src")
+      if cover == "" then cover = html_attr(card.html, ".tab-thumb img", "src") end
+      local t = string_clean(titleEl.text)
+      if bookUrl ~= "" and t ~= "" then
+        table.insert(items, { title = t, url = bookUrl, cover = absUrl(cover) })
+      end
+    end
+  end
+
+  return { items = items, hasNext = #items > 0 }
 end
