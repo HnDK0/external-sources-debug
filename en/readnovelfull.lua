@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "read_novel_full"
 name     = "ReadNovelFull"
-version  = "1.0.2"
+version  = "1.0.0"
 baseUrl  = "https://readnovelfull.com/"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/readnovelfull.png"
@@ -194,53 +194,52 @@ function getFilterList()
       label        = "Novel Listing",
       defaultValue = "novel-list/most-popular-novel",
       options = {
+        { value = "novel-list/most-popular-novel", label = "Most Popular"    },
         { value = "novel-list/hot-novel",          label = "Hot Novel"       },
         { value = "novel-list/completed-novel",    label = "Completed Novel" },
-        { value = "novel-list/most-popular-novel", label = "Most Popular"    },
       }
     },
     {
-      type         = "select",
-      key          = "genres",
-      label        = "Genre (cancels Novel Listing)",
-      defaultValue = "",
+      type        = "checkbox",
+      key         = "genre",
+      label       = "Genre",
+      multiselect = false,
       options = {
-        { value = "",                        label = "All"            },
-        { value = "genres/action",           label = "Action"         },
-        { value = "genres/adult",            label = "Adult"          },
-        { value = "genres/adventure",        label = "Adventure"      },
-        { value = "genres/comedy",           label = "Comedy"         },
-        { value = "genres/drama",            label = "Drama"          },
-        { value = "genres/eastern",          label = "Eastern"        },
-        { value = "genres/ecchi",            label = "Ecchi"          },
-        { value = "genres/fantasy",          label = "Fantasy"        },
-        { value = "genres/game",             label = "Game"           },
-        { value = "genres/gender+bender",    label = "Gender Bender"  },
-        { value = "genres/harem",            label = "Harem"          },
-        { value = "genres/historical",       label = "Historical"     },
-        { value = "genres/horror",           label = "Horror"         },
-        { value = "genres/josei",            label = "Josei"          },
-        { value = "genres/martial+arts",     label = "Martial Arts"   },
-        { value = "genres/mature",           label = "Mature"         },
-        { value = "genres/mecha",            label = "Mecha"          },
-        { value = "genres/modern+life",      label = "Modern Life"    },
-        { value = "genres/mystery",          label = "Mystery"        },
-        { value = "genres/psychological",    label = "Psychological"  },
-        { value = "genres/reincarnation",    label = "Reincarnation"  },
-        { value = "genres/romance",          label = "Romance"        },
-        { value = "genres/school+life",      label = "School Life"    },
-        { value = "genres/sci-fi",           label = "Sci-fi"         },
-        { value = "genres/seinen",           label = "Seinen"         },
-        { value = "genres/shoujo",           label = "Shoujo"         },
-        { value = "genres/shounen",          label = "Shounen"        },
-        { value = "genres/slice+of+life",    label = "Slice of Life"  },
-        { value = "genres/smut",             label = "Smut"           },
-        { value = "genres/sports",           label = "Sports"         },
-        { value = "genres/supernatural",     label = "Supernatural"   },
-        { value = "genres/system",           label = "System"         },
-        { value = "genres/thriller",         label = "Thriller"       },
-        { value = "genres/tragedy",          label = "Tragedy"        },
-        { value = "genres/transmigration",   label = "Transmigration" },
+        { value = "action",         label = "Action"         },
+        { value = "adult",          label = "Adult"          },
+        { value = "adventure",      label = "Adventure"      },
+        { value = "comedy",         label = "Comedy"         },
+        { value = "drama",          label = "Drama"          },
+        { value = "eastern",        label = "Eastern"        },
+        { value = "ecchi",          label = "Ecchi"          },
+        { value = "fantasy",        label = "Fantasy"        },
+        { value = "game",           label = "Game"           },
+        { value = "gender+bender",  label = "Gender Bender"  },
+        { value = "harem",          label = "Harem"          },
+        { value = "historical",     label = "Historical"     },
+        { value = "horror",         label = "Horror"         },
+        { value = "josei",          label = "Josei"          },
+        { value = "martial+arts",   label = "Martial Arts"   },
+        { value = "mature",         label = "Mature"         },
+        { value = "mecha",          label = "Mecha"          },
+        { value = "modern+life",    label = "Modern Life"    },
+        { value = "mystery",        label = "Mystery"        },
+        { value = "psychological",  label = "Psychological"  },
+        { value = "reincarnation",  label = "Reincarnation"  },
+        { value = "romance",        label = "Romance"        },
+        { value = "school+life",    label = "School Life"    },
+        { value = "sci-fi",         label = "Sci-fi"         },
+        { value = "seinen",         label = "Seinen"         },
+        { value = "shoujo",         label = "Shoujo"         },
+        { value = "shounen",        label = "Shounen"        },
+        { value = "slice+of+life",  label = "Slice of Life"  },
+        { value = "smut",           label = "Smut"           },
+        { value = "sports",         label = "Sports"         },
+        { value = "supernatural",   label = "Supernatural"   },
+        { value = "system",         label = "System"         },
+        { value = "thriller",       label = "Thriller"       },
+        { value = "tragedy",        label = "Tragedy"        },
+        { value = "transmigration", label = "Transmigration" },
       }
     },
   }
@@ -250,10 +249,11 @@ end
 
 function getCatalogFiltered(index, filters)
   local page   = index + 1
-  local genres = filters["genres"] or ""
-  local ftype  = filters["type"]   or "novel-list/most-popular-novel"
+  local ftype  = filters["type"] or "novel-list/most-popular-novel"
+  local genres = filters["genre_included"] or {}
+  local genre  = genres[1] or ""
 
-  local basePath = genres ~= "" and genres or ftype
+  local basePath = genre ~= "" and ("genres/" .. genre) or ftype
   local url = baseUrl .. basePath
   if page > 1 then url = url .. "?page=" .. page end
 
