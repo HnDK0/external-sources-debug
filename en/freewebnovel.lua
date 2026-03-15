@@ -1,7 +1,7 @@
 ﻿-- ── Метаданные ────────────────────────────────────────────────────────────────
 id       = "freewebnovel"
 name     = "FreeWebNovel"
-version  = "1.0.0"
+version  = "1.0.1"
 baseUrl  = "https://freewebnovel.com"
 language = "en"
 icon     = "https://raw.githubusercontent.com/HnDK0/external-sources/main/icons/freewebnovel.png"
@@ -149,7 +149,117 @@ function getChapterListHash(bookUrl)
   return nil
 end
 
--- ── Текст главы ───────────────────────────────────────────────────────────────
+-- ── Жанры книги ───────────────────────────────────────────────────────────────
+
+function getBookGenres(bookUrl)
+  local r = http_get(bookUrl)
+  if not r.success then return {} end
+  local genres = {}
+  for _, item in ipairs(html_select(r.body, ".m-imgtxt .txt .item")) do
+    local span = html_select_first(item.html, "span[title='Genre']")
+    if span then
+      for _, a in ipairs(html_select(item.html, ".right a")) do
+        local g = string_trim(a.text)
+        if g ~= "" then table.insert(genres, g) end
+      end
+      break
+    end
+  end
+  return genres
+end
+
+-- ── Список фильтров ───────────────────────────────────────────────────────────
+
+function getFilterList()
+  return {
+    {
+      type         = "select",
+      key          = "type",
+      label        = "Novel Listing",
+      defaultValue = "sort/most-popular",
+      options = {
+        { value = "sort/most-popular",    label = "Most Popular"    },
+        { value = "sort/latest-novel",    label = "Latest Novels"   },
+        { value = "sort/latest-release",  label = "Latest Release"  },
+        { value = "sort/completed-novel", label = "Completed Novel" },
+      }
+    },
+    {
+      type        = "checkbox",
+      key         = "genre",
+      label       = "Genre",
+      multiselect = false,
+      options = {
+        { value = "Action",        label = "Action"        },
+        { value = "Adult",         label = "Adult"         },
+        { value = "Adventure",     label = "Adventure"     },
+        { value = "Comedy",        label = "Comedy"        },
+        { value = "Drama",         label = "Drama"         },
+        { value = "Eastern",       label = "Eastern"       },
+        { value = "Ecchi",         label = "Ecchi"         },
+        { value = "Fantasy",       label = "Fantasy"       },
+        { value = "Game",          label = "Game"          },
+        { value = "Gender+Bender", label = "Gender Bender" },
+        { value = "Harem",         label = "Harem"         },
+        { value = "Historical",    label = "Historical"    },
+        { value = "Horror",        label = "Horror"        },
+        { value = "Josei",         label = "Josei"         },
+        { value = "Martial+Arts",  label = "Martial Arts"  },
+        { value = "Mature",        label = "Mature"        },
+        { value = "Mecha",         label = "Mecha"         },
+        { value = "Mystery",       label = "Mystery"       },
+        { value = "Psychological", label = "Psychological" },
+        { value = "Reincarnation", label = "Reincarnation" },
+        { value = "Romance",       label = "Romance"       },
+        { value = "School+Life",   label = "School Life"   },
+        { value = "Sci-fi",        label = "Sci-fi"        },
+        { value = "Seinen",        label = "Seinen"        },
+        { value = "Shoujo",        label = "Shoujo"        },
+        { value = "Shounen",       label = "Shounen"       },
+        { value = "Shounen+Ai",    label = "Shounen Ai"    },
+        { value = "Slice+of+Life", label = "Slice of Life" },
+        { value = "Smut",          label = "Smut"          },
+        { value = "Sports",        label = "Sports"        },
+        { value = "Supernatural",  label = "Supernatural"  },
+        { value = "Tragedy",       label = "Tragedy"       },
+        { value = "Wuxia",         label = "Wuxia"         },
+        { value = "Xianxia",       label = "Xianxia"       },
+        { value = "Xuanhuan",      label = "Xuanhuan"      },
+        { value = "Yaoi",          label = "Yaoi"          },
+      }
+    },
+  }
+end
+
+-- ── Каталог с фильтрами ───────────────────────────────────────────────────────
+
+function getCatalogFiltered(index, filters)
+  local page   = index + 1
+  local ftype  = filters["type"] or "sort/most-popular"
+  local genres = filters["genre_included"] or {}
+  local genre  = genres[1] or ""
+
+  local basePath = genre ~= "" and ("genre/" .. genre) or ftype
+  local url = baseUrl .. "/" .. basePath .. "/" .. tostring(page)
+
+  local r = http_get(url)
+  if not r.success then return { items = {}, hasNext = false } end
+
+  local items = {}
+  for _, row in ipairs(html_select(r.body, ".ul-list1 .li-row")) do
+    local titleEl = html_select_first(row.html, ".tit a")
+    local cover   = absUrl(html_attr(row.html, ".pic img", "src"))
+    if titleEl then
+      table.insert(items, {
+        title = string_clean(titleEl.text),
+        url   = absUrl(titleEl.href),
+        cover = cover
+      })
+    end
+  end
+
+  return { items = items, hasNext = #items > 0 }
+end
 
 function getChapterText(html, url)
   local cleaned = html_remove(html, "script", "style", ".ads", ".advertisement", "h4", "sub")
